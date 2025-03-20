@@ -31,6 +31,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# large files
+*.zip
+drivewise-deploy.zip
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
