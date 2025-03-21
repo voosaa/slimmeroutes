@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { Toaster } from '@/components/ui/toaster'
@@ -10,6 +10,17 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'DriveWise - Smart Route Planner for Businesses',
   description: 'Optimize your customer visits with our intelligent route planning tool',
+  applicationName: 'DriveWise',
+  authors: [{ name: 'DriveWise Team' }],
+  keywords: ['route planning', 'business routes', 'delivery optimization', 'field service']
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  themeColor: '#10b981' // Emerald color for theme
 }
 
 export default function RootLayout({
@@ -18,8 +29,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    <html lang="en" className="h-full">
+      <body className={`${inter.className} h-full antialiased`}>
         <AuthProvider>
           <RouteProvider>
             {children}
