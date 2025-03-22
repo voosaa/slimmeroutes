@@ -220,7 +220,8 @@ export const signInToGoogle = (): Promise<void> => {
       
       // Get the current origin for the redirect URI
       const origin = window.location.origin;
-      const redirectUri = `${origin}/dashboard/calendar-test`;
+      // Google OAuth typically expects just the origin as the redirect URI
+      const redirectUri = origin;
       
       console.log('Using redirect URI:', redirectUri);
       
