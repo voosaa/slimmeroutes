@@ -100,10 +100,27 @@ export const loadGoogleCalendarApi = (): Promise<void> => {
       window.gapi.load('client', async () => {
         try {
           console.log('Initializing GAPI client with API key and discovery doc...');
-          await window.gapi.client.init({
-            apiKey: GOOGLE_API_KEY,
-            discoveryDocs: [DISCOVERY_DOC],
-          });
+          try {
+            console.log('GAPI client initialization starting...');
+            console.log('API Key length:', GOOGLE_API_KEY.length);
+            console.log('Discovery Doc:', DISCOVERY_DOC);
+            
+            await window.gapi.client.init({
+              apiKey: GOOGLE_API_KEY,
+              discoveryDocs: [DISCOVERY_DOC],
+            });
+            console.log('GAPI client initialized successfully');
+          } catch (initError) {
+            console.error('GAPI client initialization error details:', initError);
+            if (initError instanceof Error) {
+              console.error('Error message:', initError.message);
+              console.error('Error name:', initError.name);
+              console.error('Error stack:', initError.stack);
+            } else {
+              console.error('Non-Error object thrown:', typeof initError, JSON.stringify(initError));
+            }
+            throw initError;
+          }
           
           console.log('Loading Google Identity Services script...');
           // Load Google Identity Services
