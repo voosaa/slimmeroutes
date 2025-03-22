@@ -10,7 +10,7 @@ import { CostCalculator } from '@/components/dashboard/cost-calculator'
 import { RouteOptimizer } from '@/components/dashboard/route-optimizer'
 import { SupabaseSetupGuide } from '@/components/setup/supabase-setup-guide'
 import MapComponent from '@/components/map/map-component'
-import { Address, supabase } from '@/lib/supabase'
+import { Address, supabase, createRoute } from '@/lib/supabase'
 import { 
   Card, 
   CardContent, 
@@ -219,6 +219,31 @@ export default function DashboardPage() {
         optimizationResult.totalDistance,
         optimizationResult.totalDuration
       )
+      
+      // Save the route to Supabase
+      const routeName = `Route ${new Date().toLocaleDateString()}`;
+      const { data, error } = await createRoute(
+        routeName,
+        optimizationResult.orderedAddresses,
+        optimizedIds,
+        optimizationResult.totalDistance,
+        optimizationResult.totalDuration
+      );
+      
+      if (error) {
+        console.error('Error saving route:', error);
+        toast({
+          title: 'Warning',
+          description: 'Route generated but could not be saved to history',
+          variant: 'destructive'
+        });
+      } else {
+        console.log('Route saved successfully:', data);
+        toast({
+          title: 'Route generated and saved',
+          description: `Optimized route for ${addresses.length} addresses has been saved to your history`,
+        });
+      }
       
       toast({
         title: 'Route generated',

@@ -121,6 +121,10 @@ export default function Home() {
               <Link href="/register" className="hover:text-white">Sign Up</Link>
             </div>
           </div>
+          <div className="mt-6 pt-6 border-t border-neutral-700 flex flex-wrap justify-center gap-6 text-sm">
+            <Link href="/privacy-policy" className="hover:text-white">Privacy Policy</Link>
+            <Link href="/terms-of-service" className="hover:text-white">Terms of Service</Link>
+          </div>
         </div>
       </footer>
     </div>

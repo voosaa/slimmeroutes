@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { exportRouteToGoogleCalendar, isSignedInToGoogle } from '@/lib/google-calendar'
+import { exportRouteToGoogleCalendar, isSignedInToGoogle, loadGoogleCalendarApi, signInToGoogle } from '@/lib/google-calendar'
 
 type RouteOptimizerProps = {
   addresses: Address[]
@@ -44,10 +44,11 @@ export function RouteOptimizer({ addresses, onOptimizeRoute }: RouteOptimizerPro
   } | null>(null)
   const [hourlyCost, setHourlyCost] = useState<number>(25) // Default hourly cost
   const [googleCalendarEnabled, setGoogleCalendarEnabled] = useState(false)
+  const [optimizedOrder, setOptimizedOrder] = useState<string[]>([])
   const { toast } = useToast()
   const { user } = useAuth()
 
-  // Load user settings
+  // Load user settings and initialize Google Calendar API
   useEffect(() => {
     const loadUserSettings = async () => {
       if (!user) return
@@ -59,21 +60,33 @@ export function RouteOptimizer({ addresses, onOptimizeRoute }: RouteOptimizerPro
           .eq('user_id', user.id)
           .single()
         
-        if (error && error.code !== 'PGRST116') { // PGRST116 is "not found" error
-          throw error
-        }
-        
         if (data) {
           setHourlyCost(data.hourly_cost || 25)
           setGoogleCalendarEnabled(data.google_calendar_enabled || false)
+          
+          // Initialize Google Calendar API if enabled
+          if (data.google_calendar_enabled) {
+            try {
+              console.log('Initializing Google Calendar API...');
+              await loadGoogleCalendarApi()
+              console.log('Google Calendar API loaded successfully')
+            } catch (error) {
+              console.error('Error loading Google Calendar API:', error)
+              toast({
+                title: 'Warning',
+                description: 'Could not load Google Calendar integration. Please check your API credentials.',
+                variant: 'destructive'
+              })
+            }
+          }
         }
-      } catch (error) {
-        console.error('Error loading user settings:', error)
+      } catch (err) {
+        console.error('Error loading user settings:', err)
       }
     }
-    
+
     loadUserSettings()
-  }, [user])
+  }, [user, toast])
 
   // Set the first address as the default starting address when addresses change
   useEffect(() => {
@@ -360,6 +373,8 @@ export function RouteOptimizer({ addresses, onOptimizeRoute }: RouteOptimizerPro
       const optimizedAddresses = optimizedRoute.map(id => 
         addresses.find(addr => addr.id === id)!
       )
+      
+      setOptimizedOrder(optimizedRoute)
       
       // Call the parent component's callback
       onOptimizeRoute(optimizedAddresses)
@@ -776,22 +791,41 @@ export function RouteOptimizer({ addresses, onOptimizeRoute }: RouteOptimizerPro
       return
     }
     
-    if (!isSignedInToGoogle()) {
-      toast({
-        title: "Not connected",
-        description: "Please connect to Google Calendar in Settings first",
-        variant: "destructive"
-      })
-      return
-    }
-    
     setIsCalendarExporting(true)
     
     try {
+      console.log("Starting Google Calendar export process...")
+      
+      // Try to initialize Google Calendar API if not already initialized
+      try {
+        console.log("Loading Google Calendar API...")
+        await loadGoogleCalendarApi()
+        console.log("Google Calendar API loaded successfully")
+        
+        if (!isSignedInToGoogle()) {
+          console.log("User not signed in to Google, initiating sign-in...")
+          await signInToGoogle()
+          console.log("User successfully signed in to Google")
+        } else {
+          console.log("User already signed in to Google")
+        }
+      } catch (error) {
+        console.error('Error with Google Calendar initialization:', error)
+        toast({
+          title: "Google Calendar Error",
+          description: "Could not connect to Google Calendar. Please check your API credentials and try again.",
+          variant: "destructive"
+        })
+        setIsCalendarExporting(false)
+        return
+      }
+      
       // Set the route date to tomorrow morning at 9 AM
       const routeDate = new Date()
       routeDate.setDate(routeDate.getDate() + 1)
       routeDate.setHours(9, 0, 0, 0)
+      
+      console.log("Preparing addresses for export...")
       
       // Export the route to Google Calendar
       const formattedAddresses = addresses.map(addr => ({
@@ -799,22 +833,30 @@ export function RouteOptimizer({ addresses, onOptimizeRoute }: RouteOptimizerPro
         address: addr.address,
         lat: addr.lat,
         lng: addr.lng,
-        notes: addr.notes || undefined, // Convert null to undefined
-        time_spent: typeof addr.time_spent === 'number' ? addr.time_spent : undefined // Ensure it's a number or undefined
+        notes: addr.notes || '',
+        time_spent: 30 // Default to 30 minutes per stop
       }))
       
-      const eventIds = await exportRouteToGoogleCalendar(formattedAddresses, routeDate)
+      // Sort addresses according to optimized order
+      const orderedAddresses = optimizedOrder.map(id => 
+        formattedAddresses.find(addr => addr.id === id)
+      ).filter(Boolean) as typeof formattedAddresses
+      
+      console.log("Exporting route to Google Calendar with addresses:", orderedAddresses.length)
+      
+      const eventIds = await exportRouteToGoogleCalendar(orderedAddresses, routeDate)
+      
+      console.log("Export successful, created events:", eventIds.length)
       
       toast({
         title: "Export successful",
         description: `Created ${eventIds.length} events in your Google Calendar`,
-        variant: "default"
       })
     } catch (error) {
       console.error('Error exporting to Google Calendar:', error)
       toast({
         title: "Export failed",
-        description: "Failed to export route to Google Calendar",
+        description: "Could not export to Google Calendar. Please try again.",
         variant: "destructive"
       })
     } finally {
