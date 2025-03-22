@@ -12,7 +12,11 @@ export const metadata: Metadata = {
   description: 'Optimize your customer visits with our intelligent route planning tool',
   applicationName: 'SlimmeRoutes',
   authors: [{ name: 'SlimmeRoutes Team' }],
-  keywords: ['route planning', 'business routes', 'delivery optimization', 'field service']
+  keywords: ['route planning', 'business routes', 'delivery optimization', 'field service'],
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/images/logo/slimmeroutes-icon.png',
+  }
 }
 
 export const viewport: Viewport = {

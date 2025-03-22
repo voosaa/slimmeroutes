@@ -20,7 +20,13 @@ export default function Home() {
     <div className="min-h-screen flex flex-col">
       <header className="border-b border-neutral-200 py-4 sticky top-0 bg-white z-10">
         <div className="container mx-auto px-4 flex justify-between items-center">
-          <div className="font-bold text-xl text-primary-500">SlimmeRoutes</div>
+          <Link href="/" className="flex items-center">
+            <img 
+              src="/images/logo/slimmeroutes-logo.svg" 
+              alt="SlimmeRoutes Logo" 
+              className="h-8"
+            />
+          </Link>
           
           {/* Desktop Navigation */}
           <div className="hidden md:flex space-x-4">

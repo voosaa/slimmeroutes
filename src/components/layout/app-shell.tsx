@@ -44,9 +44,21 @@ export function AppShell({ children }: AppShellProps) {
           <div className="h-16 flex items-center px-4 border-b border-gray-200">
             <Link href="/dashboard" className="flex items-center">
               {sidebarOpen ? (
-                <div className="text-xl font-semibold text-emerald-600">SlimmeRoutes</div>
+                <div className="flex items-center">
+                  <img 
+                    src="/images/logo/slimmeroutes-logo.svg" 
+                    alt="SlimmeRoutes Logo" 
+                    className="h-8"
+                  />
+                </div>
               ) : (
-                <div className="w-8 h-8 bg-emerald-600 rounded-md flex items-center justify-center text-white font-bold">S</div>
+                <div className="w-8 h-8 flex items-center justify-center">
+                  <img 
+                    src="/images/logo/slimmeroutes-icon.svg" 
+                    alt="SlimmeRoutes Icon" 
+                    className="w-full h-full"
+                  />
+                </div>
               )}
             </Link>
             <button 

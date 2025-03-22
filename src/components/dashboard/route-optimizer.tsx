@@ -811,9 +811,27 @@ export function RouteOptimizer({ addresses, onOptimizeRoute }: RouteOptimizerPro
         }
       } catch (error) {
         console.error('Error with Google Calendar initialization:', error)
+        
+        // Provide more specific error messages based on the error type
+        let errorMessage = "Could not connect to Google Calendar. Please check your API credentials and try again."
+        
+        if (error instanceof Error) {
+          console.error('Error details:', error.message)
+          
+          if (error.message.includes('credentials')) {
+            errorMessage = "Invalid Google Calendar API credentials. Please check your Client ID and API Key in the .env.local file."
+          } else if (error.message.includes('scope')) {
+            errorMessage = "Google Calendar API scope not authorized. Please check your OAuth consent screen configuration."
+          } else if (error.message.includes('load')) {
+            errorMessage = "Failed to load Google Calendar API. Please check your internet connection."
+          } else if (error.message.includes('sign')) {
+            errorMessage = "Google sign-in failed. Please try again or check your browser settings."
+          }
+        }
+        
         toast({
           title: "Google Calendar Error",
-          description: "Could not connect to Google Calendar. Please check your API credentials and try again.",
+          description: errorMessage,
           variant: "destructive"
         })
         setIsCalendarExporting(false)
@@ -854,9 +872,25 @@ export function RouteOptimizer({ addresses, onOptimizeRoute }: RouteOptimizerPro
       })
     } catch (error) {
       console.error('Error exporting to Google Calendar:', error)
+      
+      // Provide more specific error messages for export failures
+      let errorMessage = "Could not export to Google Calendar. Please try again."
+      
+      if (error instanceof Error) {
+        console.error('Export error details:', error.message)
+        
+        if (error.message.includes('permission') || error.message.includes('access')) {
+          errorMessage = "Calendar access denied. Please check your Google account permissions."
+        } else if (error.message.includes('quota')) {
+          errorMessage = "Google Calendar API quota exceeded. Please try again later."
+        } else if (error.message.includes('network')) {
+          errorMessage = "Network error during export. Please check your internet connection."
+        }
+      }
+      
       toast({
         title: "Export failed",
-        description: "Could not export to Google Calendar. Please try again.",
+        description: errorMessage,
         variant: "destructive"
       })
     } finally {

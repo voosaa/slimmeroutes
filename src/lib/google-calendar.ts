@@ -14,6 +14,29 @@ let isLoading = false;
 let isLoaded = false;
 let loadError: Error | null = null;
 
+// Debug function to safely log credential info without exposing full values
+const debugCredentials = () => {
+  console.log('Environment variables check:');
+  console.log('NEXT_PUBLIC_GOOGLE_CLIENT_ID exists:', !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
+  console.log('NEXT_PUBLIC_GOOGLE_API_KEY exists:', !!process.env.NEXT_PUBLIC_GOOGLE_API_KEY);
+  
+  const clientIdLength = GOOGLE_CLIENT_ID?.length || 0;
+  const apiKeyLength = GOOGLE_API_KEY?.length || 0;
+  
+  console.log('Credential lengths:', {
+    clientId: clientIdLength > 0 ? `${clientIdLength} chars` : 'Empty',
+    apiKey: apiKeyLength > 0 ? `${apiKeyLength} chars` : 'Empty'
+  });
+  
+  if (clientIdLength > 0) {
+    console.log('Client ID prefix:', GOOGLE_CLIENT_ID.substring(0, 8) + '...');
+  }
+  
+  if (apiKeyLength > 0) {
+    console.log('API Key prefix:', GOOGLE_API_KEY.substring(0, 4) + '...');
+  }
+};
+
 // Load the Google API client library
 export const loadGoogleCalendarApi = (): Promise<void> => {
   return new Promise((resolve, reject) => {
@@ -23,92 +46,101 @@ export const loadGoogleCalendarApi = (): Promise<void> => {
       reject(error);
       return;
     }
-
-    // More detailed logging of credentials format
-    console.log('Google Calendar API credentials check:', { 
-      clientId: GOOGLE_CLIENT_ID ? 
-        `${GOOGLE_CLIENT_ID.substring(0, 8)}... (${GOOGLE_CLIENT_ID.length} chars, ends with .apps.googleusercontent.com: ${GOOGLE_CLIENT_ID.endsWith('.apps.googleusercontent.com')})` : 
-        'Missing', 
-      apiKey: GOOGLE_API_KEY ? 
-        `${GOOGLE_API_KEY.substring(0, 8)}... (${GOOGLE_API_KEY.length} chars)` : 
-        'Missing' 
-    });
-
-    if (!GOOGLE_CLIENT_ID || !GOOGLE_API_KEY) {
-      const error = new Error('Google Calendar API credentials are not configured');
-      console.error('Missing Google Calendar API credentials');
+    
+    // Debug credential information
+    debugCredentials();
+    
+    // Validate credentials
+    if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.trim() === '') {
+      const error = new Error('Google Calendar API Client ID is not configured');
+      console.error('Missing Google Client ID');
+      console.error('Please check your .env.local file and make sure NEXT_PUBLIC_GOOGLE_CLIENT_ID is set correctly');
+      loadError = error;
+      reject(error);
+      return;
+    }
+    
+    if (!GOOGLE_API_KEY || GOOGLE_API_KEY.trim() === '') {
+      const error = new Error('Google Calendar API Key is not configured');
+      console.error('Missing Google API Key');
+      console.error('Please check your .env.local file and make sure NEXT_PUBLIC_GOOGLE_API_KEY is set correctly');
       loadError = error;
       reject(error);
       return;
     }
 
-    // Validate Client ID format
-    if (!GOOGLE_CLIENT_ID.endsWith('.apps.googleusercontent.com')) {
-      const error = new Error('Google Client ID is not in the correct format');
-      console.error('Google Client ID should end with .apps.googleusercontent.com');
-      loadError = error;
-      reject(error);
+    // If we're already loading, don't start another load
+    if (isLoading) {
+      console.log('Google Calendar API is already loading');
+      reject(new Error('Google Calendar API is already loading'));
       return;
     }
 
     // If already loaded, resolve immediately
-    if (isLoaded && window.gapi?.client?.calendar) {
-      console.log('Google Calendar API already loaded, resolving immediately');
+    if (isLoaded) {
+      console.log('Google Calendar API is already loaded');
       resolve();
       return;
     }
 
-    // If already loading, wait for it to complete
-    if (isLoading) {
-      console.log('Google Calendar API already loading, waiting...');
-      const checkLoaded = setInterval(() => {
-        if (isLoaded) {
-          clearInterval(checkLoaded);
-          resolve();
-        }
-        if (loadError) {
-          clearInterval(checkLoaded);
-          reject(loadError);
-        }
-      }, 100);
-      return;
-    }
-
+    // Reset any previous load errors
+    loadError = null;
     isLoading = true;
-    console.log('Starting Google Calendar API load process...');
 
-    // First, check if gapi is already loaded
-    if (window.gapi) {
-      console.log('GAPI already exists, initializing client...');
-      initializeGapiClient().then(resolve).catch(err => {
-        loadError = err;
-        isLoading = false;
-        reject(err);
-      });
-      return;
-    }
-
+    console.log('Loading Google Calendar API...');
+    
     // Load the Google API client library
-    console.log('Loading gapi.js script...');
     const script = document.createElement('script');
     script.src = 'https://apis.google.com/js/api.js';
     script.async = true;
     script.defer = true;
     
     script.onload = () => {
-      console.log('Google API script loaded successfully');
-      initializeGapiClient().then(resolve).catch(err => {
-        loadError = err;
-        isLoading = false;
-        reject(err);
+      console.log('Google API script loaded, loading client...');
+      window.gapi.load('client', async () => {
+        try {
+          console.log('Initializing GAPI client with API key and discovery doc...');
+          await window.gapi.client.init({
+            apiKey: GOOGLE_API_KEY,
+            discoveryDocs: [DISCOVERY_DOC],
+          });
+          
+          console.log('Loading Google Identity Services script...');
+          // Load Google Identity Services
+          const identityScript = document.createElement('script');
+          identityScript.src = 'https://accounts.google.com/gsi/client';
+          identityScript.async = true;
+          identityScript.defer = true;
+          
+          identityScript.onload = () => {
+            console.log('Google Identity Services loaded successfully');
+            isLoaded = true;
+            isLoading = false;
+            resolve();
+          };
+          
+          identityScript.onerror = (error) => {
+            console.error('Error loading Google Identity Services:', error);
+            isLoading = false;
+            loadError = new Error('Failed to load Google Identity Services');
+            reject(loadError);
+          };
+          
+          document.body.appendChild(identityScript);
+        } catch (error) {
+          console.error('Error initializing GAPI client:', error);
+          isLoading = false;
+          loadError = error instanceof Error ? error : new Error('Unknown error initializing GAPI client');
+          reject(loadError);
+        }
       });
     };
     
     script.onerror = (error) => {
       console.error('Error loading Google API script:', error);
-      loadError = new Error('Failed to load Google API script');
       isLoading = false;
-      reject(error);
+      loadError = new Error('Failed to load Google API script');
+      reject(loadError);
     };
     
     document.body.appendChild(script);
@@ -123,18 +155,27 @@ const initializeGapiClient = async (): Promise<void> => {
       window.gapi.load('client:auth2', async () => {
         try {
           console.log('Initializing GAPI client with credentials...');
+          console.log('Client ID:', GOOGLE_CLIENT_ID.substring(0, 8) + '...');
+          console.log('API Key:', GOOGLE_API_KEY.substring(0, 4) + '...');
+          
           await window.gapi.client.init({
             apiKey: GOOGLE_API_KEY,
             clientId: GOOGLE_CLIENT_ID,
             discoveryDocs: [DISCOVERY_DOC],
             scope: SCOPES
           });
+          
           console.log('Google Calendar API loaded successfully');
           isLoaded = true;
           isLoading = false;
           resolve();
         } catch (error) {
           console.error('Error initializing GAPI client:', error);
+          // More detailed error logging
+          if (error instanceof Error) {
+            console.error('Error message:', error.message);
+            console.error('Error stack:', error.stack);
+          }
           isLoading = false;
           reject(error);
         }

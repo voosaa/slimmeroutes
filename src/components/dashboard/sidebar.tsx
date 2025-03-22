@@ -77,17 +77,12 @@ export function Sidebar() {
     <>
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-100 z-30 px-4 flex items-center justify-between">
-        <Link href="/" className="text-xl font-bold text-emerald-600 flex items-center">
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            viewBox="0 0 24 24" 
-            fill="currentColor" 
+        <Link href="/dashboard" className="flex items-center text-emerald-600 font-semibold">
+          <img 
+            src="/images/logo/slimmeroutes-icon.svg" 
+            alt="SlimmeRoutes Logo" 
             className="w-6 h-6 mr-2"
-          >
-            <path d="M3.375 4.5C2.339 4.5 1.5 5.34 1.5 6.375V13.5h12V6.375c0-1.036-.84-1.875-1.875-1.875h-8.25zM13.5 15h-12v2.625c0 1.035.84 1.875 1.875 1.875h8.25c1.035 0 1.875-.84 1.875-1.875V15z" />
-            <path d="M8.25 19.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0zM15.75 6.75a.75.75 0 00-.75.75v11.25c0 .087.015.17.042.248a3 3 0 005.958.464c.853-.175 1.522-.935 1.464-1.883a18.659 18.659 0 00-3.732-10.104 1.837 1.837 0 00-1.47-.725H15.75z" />
-            <path d="M19.5 19.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" />
-          </svg>
+          />
           SlimmeRoutes
         </Link>
         <button 
@@ -177,17 +172,12 @@ export function Sidebar() {
       {/* Desktop Sidebar */}
       <aside className="hidden lg:block w-64 bg-white border-r border-gray-100 min-h-screen shadow-sm fixed left-0 top-0 z-30">
         <div className="p-6">
-          <Link href="/" className="text-xl font-bold text-emerald-600 flex items-center">
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              viewBox="0 0 24 24" 
-              fill="currentColor" 
+          <Link href="/dashboard" className="flex items-center text-emerald-600 font-semibold">
+            <img 
+              src="/images/logo/slimmeroutes-icon.svg" 
+              alt="SlimmeRoutes Logo" 
               className="w-6 h-6 mr-2"
-            >
-              <path d="M3.375 4.5C2.339 4.5 1.5 5.34 1.5 6.375V13.5h12V6.375c0-1.036-.84-1.875-1.875-1.875h-8.25zM13.5 15h-12v2.625c0 1.035.84 1.875 1.875 1.875h8.25c1.035 0 1.875-.84 1.875-1.875V15z" />
-              <path d="M8.25 19.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0zM15.75 6.75a.75.75 0 00-.75.75v11.25c0 .087.015.17.042.248a3 3 0 005.958.464c.853-.175 1.522-.935 1.464-1.883a18.659 18.659 0 00-3.732-10.104 1.837 1.837 0 00-1.47-.725H15.75z" />
-              <path d="M19.5 19.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z" />
-            </svg>
+            />
             SlimmeRoutes
           </Link>
         </div>
