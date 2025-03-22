@@ -6,8 +6,8 @@ import { Label } from '@/components/ui/label'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: 'Account Settings - DriveWise',
-  description: 'Manage your DriveWise account settings',
+  title: 'Account Settings - SlimmeRoutes',
+  description: 'Manage your SlimmeRoutes account settings',
 }
 
 export default function AccountPage() {
@@ -122,7 +122,7 @@ export default function AccountPage() {
       
       <footer className="bg-neutral-100 py-4">
         <div className="container mx-auto px-4 text-center text-neutral-500">
-          <p>&copy; {new Date().getFullYear()} DriveWise. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} SlimmeRoutes. All rights reserved.</p>
           <div className="mt-2 flex justify-center gap-4 text-sm">
             <Link href="/privacy-policy" className="text-neutral-600 hover:text-neutral-900">Privacy Policy</Link>
             <Link href="/terms-of-service" className="text-neutral-600 hover:text-neutral-900">Terms of Service</Link>

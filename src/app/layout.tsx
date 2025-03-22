@@ -8,10 +8,10 @@ import { RouteProvider } from '@/contexts/route-context'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'DriveWise - Smart Route Planner for Businesses',
+  title: 'SlimmeRoutes - Smart Route Planner for Businesses',
   description: 'Optimize your customer visits with our intelligent route planning tool',
-  applicationName: 'DriveWise',
-  authors: [{ name: 'DriveWise Team' }],
+  applicationName: 'SlimmeRoutes',
+  authors: [{ name: 'SlimmeRoutes Team' }],
   keywords: ['route planning', 'business routes', 'delivery optimization', 'field service']
 }
 

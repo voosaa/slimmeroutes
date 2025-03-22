@@ -44,9 +44,9 @@ export function AppShell({ children }: AppShellProps) {
           <div className="h-16 flex items-center px-4 border-b border-gray-200">
             <Link href="/dashboard" className="flex items-center">
               {sidebarOpen ? (
-                <div className="text-xl font-semibold text-emerald-600">DriveWise</div>
+                <div className="text-xl font-semibold text-emerald-600">SlimmeRoutes</div>
               ) : (
-                <div className="w-8 h-8 bg-emerald-600 rounded-md flex items-center justify-center text-white font-bold">D</div>
+                <div className="w-8 h-8 bg-emerald-600 rounded-md flex items-center justify-center text-white font-bold">S</div>
               )}
             </Link>
             <button 
@@ -114,7 +114,7 @@ export function AppShell({ children }: AppShellProps) {
             <Menu size={24} />
           </button>
           <Link href="/dashboard" className="flex items-center">
-            <div className="text-xl font-semibold text-emerald-600">DriveWise</div>
+            <div className="text-xl font-semibold text-emerald-600">SlimmeRoutes</div>
           </Link>
           {user && (
             <div className="ml-auto">
@@ -139,7 +139,7 @@ export function AppShell({ children }: AppShellProps) {
           <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white">
             <div className="h-16 flex items-center px-4 border-b border-gray-200">
               <Link href="/dashboard" className="flex items-center">
-                <div className="text-xl font-semibold text-emerald-600">DriveWise</div>
+                <div className="text-xl font-semibold text-emerald-600">SlimmeRoutes</div>
               </Link>
               <button 
                 onClick={toggleSidebar}

@@ -1,8 +1,8 @@
 import { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Terms of Service | DriveWise',
-  description: 'Terms of Service for DriveWise route optimization application',
+  title: 'Terms of Service | SlimmeRoutes',
+  description: 'Terms of Service for SlimmeRoutes route optimization application',
 }
 
 export default function TermsOfService() {
@@ -14,14 +14,14 @@ export default function TermsOfService() {
         
         <h2 className="text-2xl font-semibold mt-8 mb-4">1. Acceptance of Terms</h2>
         <p>
-          Welcome to DriveWise. These Terms of Service ("Terms") govern your access to and use of the DriveWise website, 
+          Welcome to SlimmeRoutes. These Terms of Service ("Terms") govern your access to and use of the SlimmeRoutes website, 
           applications, and services (collectively, the "Service"). By accessing or using the Service, you agree to be bound 
           by these Terms. If you do not agree to these Terms, you may not access or use the Service.
         </p>
         
         <h2 className="text-2xl font-semibold mt-8 mb-4">2. Description of Service</h2>
         <p>
-          DriveWise provides a route optimization service that allows users to plan efficient routes between multiple 
+          SlimmeRoutes provides a route optimization service that allows users to plan efficient routes between multiple 
           destinations. The Service may include features such as route calculation, cost estimation, and integration with 
           third-party services like Google Maps and Google Calendar.
         </p>
@@ -52,7 +52,7 @@ export default function TermsOfService() {
         
         <h2 className="text-2xl font-semibold mt-8 mb-4">5. Intellectual Property Rights</h2>
         <p>
-          The Service and its original content, features, and functionality are owned by DriveWise and are protected by 
+          The Service and its original content, features, and functionality are owned by SlimmeRoutes and are protected by 
           international copyright, trademark, patent, trade secret, and other intellectual property or proprietary rights laws.
         </p>
         <p>
@@ -64,8 +64,8 @@ export default function TermsOfService() {
         <h2 className="text-2xl font-semibold mt-8 mb-4">6. Third-Party Services and Content</h2>
         <p>
           The Service may contain links to third-party websites, services, or content that are not owned or controlled by 
-          DriveWise. We have no control over, and assume no responsibility for, the content, privacy policies, or practices 
-          of any third-party websites or services. You acknowledge and agree that DriveWise shall not be responsible or 
+          SlimmeRoutes. We have no control over, and assume no responsibility for, the content, privacy policies, or practices 
+          of any third-party websites or services. You acknowledge and agree that SlimmeRoutes shall not be responsible or 
           liable, directly or indirectly, for any damage or loss caused or alleged to be caused by or in connection with the 
           use of or reliance on any such content, goods, or services available on or through any such websites or services.
         </p>
@@ -83,7 +83,7 @@ export default function TermsOfService() {
         
         <h2 className="text-2xl font-semibold mt-8 mb-4">8. Limitation of Liability</h2>
         <p>
-          To the maximum extent permitted by law, DriveWise and its officers, directors, employees, and agents shall not be 
+          To the maximum extent permitted by law, SlimmeRoutes and its officers, directors, employees, and agents shall not be 
           liable for any indirect, incidental, special, consequential, or punitive damages, including without limitation, 
           loss of profits, data, use, goodwill, or other intangible losses, resulting from:
         </p>
@@ -106,14 +106,14 @@ export default function TermsOfService() {
           corrected, or that the Service or the servers that make it available are free of viruses or other harmful components.
         </p>
         <p>
-          DriveWise does not guarantee the accuracy of route optimizations, cost calculations, or other information provided 
+          SlimmeRoutes does not guarantee the accuracy of route optimizations, cost calculations, or other information provided 
           through the Service. You acknowledge that actual travel times, distances, and costs may vary based on real-world 
           conditions.
         </p>
         
         <h2 className="text-2xl font-semibold mt-8 mb-4">10. Indemnification</h2>
         <p>
-          You agree to defend, indemnify, and hold harmless DriveWise and its officers, directors, employees, and agents 
+          You agree to defend, indemnify, and hold harmless SlimmeRoutes and its officers, directors, employees, and agents 
           from and against any claims, liabilities, damages, losses, and expenses, including, without limitation, reasonable 
           legal and accounting fees, arising out of or in any way connected with your access to or use of the Service or your 
           violation of these Terms.
@@ -151,8 +151,8 @@ export default function TermsOfService() {
           If you have any questions about these Terms, please contact us at:
         </p>
         <p className="mt-2">
-          Email: legal@drivewise.com<br />
-          Address: DriveWise Headquarters, 123 Route Street, Amsterdam, Netherlands
+          Email: legal@slimmeroutes.com<br />
+          Address: SlimmeRoutes Headquarters, 123 Route Street, Amsterdam, Netherlands
         </p>
       </div>
     </div>

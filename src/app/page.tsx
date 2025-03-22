@@ -20,7 +20,7 @@ export default function Home() {
     <div className="min-h-screen flex flex-col">
       <header className="border-b border-neutral-200 py-4 sticky top-0 bg-white z-10">
         <div className="container mx-auto px-4 flex justify-between items-center">
-          <div className="font-bold text-xl text-primary-500">DriveWise</div>
+          <div className="font-bold text-xl text-primary-500">SlimmeRoutes</div>
           
           {/* Desktop Navigation */}
           <div className="hidden md:flex space-x-4">
@@ -64,7 +64,7 @@ export default function Home() {
         <section className="py-12 md:py-20 bg-neutral-50">
           <div className="container mx-auto px-4 text-center">
             <h1 className="text-3xl md:text-4xl font-bold mb-6 text-neutral-900">
-              Optimize Your Business Routes with DriveWise
+              Optimize Your Business Routes with SlimmeRoutes
             </h1>
             <p className="text-lg md:text-xl text-neutral-600 max-w-2xl mx-auto mb-8 md:mb-10">
               Save time and fuel by planning the most efficient routes for your customer visits.
@@ -112,8 +112,8 @@ export default function Home() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="mb-6 md:mb-0 text-center md:text-left">
-              <div className="font-bold text-xl text-white mb-2">DriveWise</div>
-              <p className="text-sm"> {new Date().getFullYear()} DriveWise. All rights reserved.</p>
+              <div className="font-bold text-xl text-white mb-2">SlimmeRoutes</div>
+              <p className="text-sm"> {new Date().getFullYear()} SlimmeRoutes. All rights reserved.</p>
             </div>
             <div className="flex flex-wrap justify-center md:justify-end gap-4 md:space-x-6">
               <Link href="/dashboard" className="hover:text-white">Dashboard</Link>

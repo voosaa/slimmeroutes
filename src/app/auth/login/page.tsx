@@ -5,8 +5,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 export const metadata: Metadata = {
-  title: 'Login - DriveWise',
-  description: 'Login to your DriveWise account',
+  title: 'Login - SlimmeRoutes',
+  description: 'Login to your SlimmeRoutes account',
 }
 
 export default function LoginPage() {
@@ -16,7 +16,7 @@ export default function LoginPage() {
         <div className="max-w-md w-full space-y-8">
           <div className="text-center">
             <h1 className="text-3xl font-bold">Welcome back</h1>
-            <p className="mt-2 text-neutral-600">Sign in to your DriveWise account</p>
+            <p className="mt-2 text-neutral-600">Sign in to your SlimmeRoutes account</p>
           </div>
           
           <div className="mt-8">
@@ -94,7 +94,7 @@ export default function LoginPage() {
       
       <footer className="bg-neutral-100 py-4">
         <div className="container mx-auto px-4 text-center text-neutral-500">
-          <p>&copy; {new Date().getFullYear()} DriveWise. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} SlimmeRoutes. All rights reserved.</p>
           <div className="mt-2 flex justify-center gap-4 text-sm">
             <Link href="/privacy-policy" className="text-neutral-600 hover:text-neutral-900">Privacy Policy</Link>
             <Link href="/terms-of-service" className="text-neutral-600 hover:text-neutral-900">Terms of Service</Link>

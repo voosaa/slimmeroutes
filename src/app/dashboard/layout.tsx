@@ -2,8 +2,8 @@ import { Metadata } from 'next'
 import { Sidebar } from '@/components/dashboard/sidebar'
 
 export const metadata: Metadata = {
-  title: 'Dashboard - DriveWise',
-  description: 'Plan and optimize your routes with DriveWise',
+  title: 'Dashboard - SlimmeRoutes',
+  description: 'Plan and optimize your routes with SlimmeRoutes',
 }
 
 export default function DashboardLayout({

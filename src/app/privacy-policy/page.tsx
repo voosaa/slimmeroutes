@@ -1,8 +1,8 @@
 import { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy | DriveWise',
-  description: 'Privacy Policy for DriveWise route optimization application',
+  title: 'Privacy Policy | SlimmeRoutes',
+  description: 'Privacy Policy for SlimmeRoutes route optimization application',
 }
 
 export default function PrivacyPolicy() {
@@ -14,7 +14,7 @@ export default function PrivacyPolicy() {
         
         <h2 className="text-2xl font-semibold mt-8 mb-4">1. Introduction</h2>
         <p>
-          Welcome to DriveWise ("we," "our," or "us"). We are committed to protecting your privacy and personal information. 
+          Welcome to SlimmeRoutes ("we," "our," or "us"). We are committed to protecting your privacy and personal information. 
           This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our route 
           optimization service, including our website and any related applications (collectively, the "Service").
         </p>
@@ -112,8 +112,8 @@ export default function PrivacyPolicy() {
           If you have questions, concerns, or requests regarding this Privacy Policy or our privacy practices, please contact us at:
         </p>
         <p className="mt-2">
-          Email: privacy@drivewise.com<br />
-          Address: DriveWise Headquarters, 123 Route Street, Amsterdam, Netherlands
+          Email: privacy@slimmeroutes.com<br />
+          Address: SlimmeRoutes Headquarters, 123 Route Street, Amsterdam, Netherlands
         </p>
       </div>
     </div>
