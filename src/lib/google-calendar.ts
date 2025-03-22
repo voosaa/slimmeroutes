@@ -218,6 +218,12 @@ export const signInToGoogle = (): Promise<void> => {
     try {
       console.log('Starting Google sign-in process...');
       
+      // Get the current origin for the redirect URI
+      const origin = window.location.origin;
+      const redirectUri = `${origin}/dashboard/calendar-test`;
+      
+      console.log('Using redirect URI:', redirectUri);
+      
       const tokenClient = window.google.accounts.oauth2.initTokenClient({
         client_id: GOOGLE_CLIENT_ID,
         scope: SCOPES,
@@ -232,6 +238,11 @@ export const signInToGoogle = (): Promise<void> => {
           localStorage.setItem('gapi-token', JSON.stringify(tokenResponse));
           resolve();
         },
+        error_callback: (error: any) => {
+          console.error('Error in token client:', error);
+          reject(new Error(`OAuth error: ${error.type || 'Unknown'}`));
+        },
+        redirect_uri: redirectUri
       });
       
       // Prompt the user to select an account and grant consent
