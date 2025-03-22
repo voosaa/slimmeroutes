@@ -35,6 +35,12 @@ const debugCredentials = () => {
   if (apiKeyLength > 0) {
     console.log('API Key prefix:', GOOGLE_API_KEY.substring(0, 4) + '...');
   }
+
+  // Log the current hostname to help with debugging authorized origins
+  if (isBrowser) {
+    console.log('Current hostname:', window.location.hostname);
+    console.log('Full origin:', window.location.origin);
+  }
 };
 
 // Load the Google API client library
@@ -89,174 +95,213 @@ export const loadGoogleCalendarApi = (): Promise<void> => {
 
     console.log('Loading Google Calendar API...');
     
-    // Load the Google API client library
-    const script = document.createElement('script');
-    script.src = 'https://apis.google.com/js/api.js';
-    script.async = true;
-    script.defer = true;
-    
-    script.onload = () => {
-      console.log('Google API script loaded, loading client...');
-      window.gapi.load('client', async () => {
-        try {
-          console.log('Initializing GAPI client with API key and discovery doc...');
-          try {
-            console.log('GAPI client initialization starting...');
-            console.log('API Key length:', GOOGLE_API_KEY.length);
-            console.log('Discovery Doc:', DISCOVERY_DOC);
-            
-            await window.gapi.client.init({
-              apiKey: GOOGLE_API_KEY,
-              discoveryDocs: [DISCOVERY_DOC],
-            });
-            console.log('GAPI client initialized successfully');
-          } catch (initError) {
-            console.error('GAPI client initialization error details:', initError);
-            if (initError instanceof Error) {
-              console.error('Error message:', initError.message);
-              console.error('Error name:', initError.name);
-              console.error('Error stack:', initError.stack);
-            } else {
-              console.error('Non-Error object thrown:', typeof initError, JSON.stringify(initError));
-            }
-            throw initError;
-          }
-          
-          console.log('Loading Google Identity Services script...');
-          // Load Google Identity Services
-          const identityScript = document.createElement('script');
-          identityScript.src = 'https://accounts.google.com/gsi/client';
-          identityScript.async = true;
-          identityScript.defer = true;
-          
-          identityScript.onload = () => {
-            console.log('Google Identity Services loaded successfully');
-            isLoaded = true;
-            isLoading = false;
-            resolve();
-          };
-          
-          identityScript.onerror = (error) => {
-            console.error('Error loading Google Identity Services:', error);
-            isLoading = false;
-            loadError = new Error('Failed to load Google Identity Services');
-            reject(loadError);
-          };
-          
-          document.body.appendChild(identityScript);
-        } catch (error) {
-          console.error('Error initializing GAPI client:', error);
-          isLoading = false;
-          loadError = error instanceof Error ? error : new Error('Unknown error initializing GAPI client');
-          reject(loadError);
-        }
+    // Create a more robust script loading function
+    const loadScript = (src: string): Promise<void> => {
+      return new Promise((resolveScript, rejectScript) => {
+        console.log(`Loading script: ${src}`);
+        const script = document.createElement('script');
+        script.src = src;
+        script.async = true;
+        script.defer = true;
+        
+        script.onload = () => {
+          console.log(`Script loaded successfully: ${src}`);
+          resolveScript();
+        };
+        
+        script.onerror = (error) => {
+          console.error(`Error loading script ${src}:`, error);
+          rejectScript(new Error(`Failed to load script: ${src}`));
+        };
+        
+        document.body.appendChild(script);
       });
     };
-    
-    script.onerror = (error) => {
-      console.error('Error loading Google API script:', error);
-      isLoading = false;
-      loadError = new Error('Failed to load Google API script');
-      reject(loadError);
-    };
-    
-    document.body.appendChild(script);
-  });
-};
 
-// Initialize the GAPI client
-const initializeGapiClient = async (): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    try {
-      console.log('Loading GAPI client...');
-      window.gapi.load('client:auth2', async () => {
-        try {
-          console.log('Initializing GAPI client with credentials...');
-          console.log('Client ID:', GOOGLE_CLIENT_ID.substring(0, 8) + '...');
-          console.log('API Key:', GOOGLE_API_KEY.substring(0, 4) + '...');
-          
-          await window.gapi.client.init({
-            apiKey: GOOGLE_API_KEY,
-            clientId: GOOGLE_CLIENT_ID,
-            discoveryDocs: [DISCOVERY_DOC],
-            scope: SCOPES
+    // Sequential loading of required scripts and initialization
+    loadScript('https://apis.google.com/js/api.js')
+      .then(() => {
+        console.log('Google API script loaded, loading client...');
+        return new Promise<void>((resolveGapi, rejectGapi) => {
+          window.gapi.load('client', {
+            callback: () => {
+              console.log('GAPI client loaded successfully');
+              resolveGapi();
+            },
+            onerror: (error: any) => {
+              console.error('Error loading GAPI client:', error);
+              rejectGapi(new Error('Failed to load GAPI client'));
+            },
+            timeout: 10000, // 10 seconds timeout
+            ontimeout: () => {
+              console.error('Timeout loading GAPI client');
+              rejectGapi(new Error('Timeout loading GAPI client'));
+            }
           });
-          
-          console.log('Google Calendar API loaded successfully');
-          isLoaded = true;
-          isLoading = false;
-          resolve();
-        } catch (error) {
-          console.error('Error initializing GAPI client:', error);
-          // More detailed error logging
-          if (error instanceof Error) {
-            console.error('Error message:', error.message);
-            console.error('Error stack:', error.stack);
+        });
+      })
+      .then(() => {
+        console.log('Initializing GAPI client with API key and discovery doc...');
+        console.log('API Key length:', GOOGLE_API_KEY.length);
+        console.log('Discovery Doc:', DISCOVERY_DOC);
+        
+        return window.gapi.client.init({
+          apiKey: GOOGLE_API_KEY,
+          discoveryDocs: [DISCOVERY_DOC],
+        }).then(() => {
+          console.log('GAPI client initialized successfully');
+        }).catch((error: any) => {
+          console.error('GAPI client initialization error:', error);
+          if (error && error.error) {
+            console.error('Error details:', error.error);
+            if (error.error.status) console.error('Status:', error.error.status);
+            if (error.error.message) console.error('Message:', error.error.message);
           }
-          isLoading = false;
-          reject(error);
+          throw error;
+        });
+      })
+      .then(() => {
+        console.log('Loading Google Identity Services script...');
+        return loadScript('https://accounts.google.com/gsi/client');
+      })
+      .then(() => {
+        console.log('Google Identity Services loaded successfully');
+        isLoaded = true;
+        isLoading = false;
+        resolve();
+      })
+      .catch((error) => {
+        console.error('Error in Google Calendar API loading process:', error);
+        if (error instanceof Error) {
+          console.error('Error message:', error.message);
+          console.error('Error name:', error.name);
+          console.error('Error stack:', error.stack);
+        } else {
+          console.error('Non-Error object thrown:', typeof error, JSON.stringify(error));
         }
+        isLoading = false;
+        loadError = error instanceof Error ? error : new Error('Unknown error in Google Calendar API loading process');
+        reject(loadError);
       });
-    } catch (error) {
-      console.error('Error loading GAPI client:', error);
-      isLoading = false;
-      reject(error);
-    }
   });
 };
 
 // Check if the user is signed in to Google
 export const isSignedInToGoogle = (): boolean => {
-  if (!isBrowser || !window.gapi?.auth2) return false;
+  if (!isBrowser || !isLoaded) {
+    return false;
+  }
+  
   try {
-    return window.gapi.auth2.getAuthInstance().isSignedIn.get();
+    const tokenClient = window.google?.accounts?.oauth2?.TokenClient;
+    const token = localStorage.getItem('gapi-token');
+    return !!token && !!tokenClient;
   } catch (error) {
-    console.error('Error checking Google sign-in status:', error);
+    console.error('Error checking if signed in to Google:', error);
     return false;
   }
 };
 
 // Sign in to Google
-export const signInToGoogle = async (): Promise<void> => {
-  if (!isBrowser) {
-    throw new Error('Google API can only be used in browser environment');
-  }
-  
-  if (!isLoaded) {
-    console.log('API not loaded, loading before sign in...');
-    await loadGoogleCalendarApi();
-  }
-  
-  if (!window.gapi?.auth2) {
-    throw new Error('Google API not loaded correctly');
-  }
-  
-  try {
-    console.log('Attempting to sign in to Google...');
-    await window.gapi.auth2.getAuthInstance().signIn();
-    console.log('Successfully signed in to Google');
-  } catch (error) {
-    console.error('Error signing in to Google:', error);
-    throw error;
-  }
+export const signInToGoogle = (): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    if (!isBrowser) {
+      reject(new Error('Google sign-in can only be performed in browser environment'));
+      return;
+    }
+    
+    if (!isLoaded) {
+      reject(new Error('Google Calendar API must be loaded before signing in'));
+      return;
+    }
+    
+    try {
+      console.log('Starting Google sign-in process...');
+      
+      const tokenClient = window.google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: SCOPES,
+        callback: (tokenResponse: any) => {
+          if (tokenResponse.error) {
+            console.error('Token error:', tokenResponse);
+            reject(new Error(`Failed to get access token: ${tokenResponse.error}`));
+            return;
+          }
+          
+          console.log('Successfully obtained access token');
+          localStorage.setItem('gapi-token', JSON.stringify(tokenResponse));
+          resolve();
+        },
+      });
+      
+      // Prompt the user to select an account and grant consent
+      tokenClient.requestAccessToken({ prompt: 'consent' });
+    } catch (error) {
+      console.error('Error during Google sign-in:', error);
+      reject(error instanceof Error ? error : new Error('Unknown error during Google sign-in'));
+    }
+  });
 };
 
 // Sign out from Google
-export const signOutFromGoogle = async (): Promise<void> => {
-  if (!isBrowser || !window.gapi?.auth2) {
-    throw new Error('Google API not loaded');
-  }
-  
-  try {
-    await window.gapi.auth2.getAuthInstance().signOut();
-  } catch (error) {
-    console.error('Error signing out from Google:', error);
-    throw error;
-  }
+export const signOutFromGoogle = (): Promise<void> => {
+  return new Promise((resolve) => {
+    if (!isBrowser) {
+      resolve();
+      return;
+    }
+    
+    try {
+      // Clear the token from local storage
+      localStorage.removeItem('gapi-token');
+      console.log('Successfully signed out from Google');
+    } catch (error) {
+      console.error('Error during Google sign-out:', error);
+    }
+    
+    resolve();
+  });
+};
+
+// Get user's Google Calendar list
+export const getCalendarList = (): Promise<any[]> => {
+  return new Promise((resolve, reject) => {
+    if (!isBrowser) {
+      reject(new Error('Google Calendar API can only be used in browser environment'));
+      return;
+    }
+    
+    if (!isLoaded) {
+      reject(new Error('Google Calendar API must be loaded before accessing calendars'));
+      return;
+    }
+    
+    if (!isSignedInToGoogle()) {
+      reject(new Error('User must be signed in to Google to access calendars'));
+      return;
+    }
+    
+    try {
+      console.log('Fetching calendar list...');
+      window.gapi.client.calendar.calendarList.list()
+        .then((response: any) => {
+          console.log('Calendar list fetched successfully');
+          const calendars = response.result.items || [];
+          resolve(calendars);
+        })
+        .catch((error: any) => {
+          console.error('Error fetching calendar list:', error);
+          reject(error);
+        });
+    } catch (error) {
+      console.error('Error accessing calendar list:', error);
+      reject(error instanceof Error ? error : new Error('Unknown error accessing calendar list'));
+    }
+  });
 };
 
 // Create calendar events for a route
-export const exportRouteToGoogleCalendar = async (
+export const exportRouteToGoogleCalendar = (
   addresses: Array<{
     id: string;
     address: string;
@@ -267,103 +312,100 @@ export const exportRouteToGoogleCalendar = async (
   }>,
   routeDate: Date = new Date()
 ): Promise<string[]> => {
-  if (!isBrowser) {
-    throw new Error('Google Calendar API can only be used in browser environment');
-  }
-  
-  if (!isLoaded) {
-    console.log('API not loaded, loading before export...');
-    await loadGoogleCalendarApi();
-  }
-  
-  if (!window.gapi?.client?.calendar) {
-    throw new Error('Google Calendar API not loaded correctly');
-  }
-  
-  if (!isSignedInToGoogle()) {
-    console.log('User not signed in, signing in before export...');
-    await signInToGoogle();
-  }
-  
-  console.log('Exporting route to Google Calendar...');
-  const eventIds: string[] = [];
-  let currentTime = new Date(routeDate);
-  
-  // Create an event for each address in the route
-  for (const address of addresses) {
-    const eventDuration = address.time_spent || 30; // Default to 30 minutes if not specified
+  return new Promise((resolve, reject) => {
+    if (!isBrowser) {
+      reject(new Error('Google Calendar API can only be used in browser environment'));
+      return;
+    }
     
-    const startTime = new Date(currentTime);
-    const endTime = new Date(currentTime);
-    endTime.setMinutes(endTime.getMinutes() + eventDuration);
+    if (!isLoaded) {
+      reject(new Error('Google Calendar API must be loaded before exporting routes'));
+      return;
+    }
+    
+    if (!isSignedInToGoogle()) {
+      reject(new Error('User must be signed in to Google to export routes'));
+      return;
+    }
+    
+    if (!addresses || addresses.length === 0) {
+      reject(new Error('No addresses provided for export'));
+      return;
+    }
     
     try {
-      const event = {
-        summary: `Visit: ${address.address}`,
-        location: address.address,
-        description: address.notes || 'Route stop from DriveWise',
-        start: {
-          dateTime: startTime.toISOString(),
-          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-        },
-        end: {
-          dateTime: endTime.toISOString(),
-          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      console.log('Exporting route to Google Calendar...');
+      
+      // Get the primary calendar
+      window.gapi.client.calendar.calendarList.list({
+        maxResults: 1,
+        showHidden: false,
+        minAccessRole: 'owner'
+      }).then((response: any) => {
+        const calendars = response.result.items || [];
+        if (calendars.length === 0) {
+          reject(new Error('No calendars found'));
+          return;
         }
-      };
-      
-      console.log('Creating calendar event for address:', address.address);
-      const response = await window.gapi.client.calendar.events.insert({
-        calendarId: 'primary',
-        resource: event
+        
+        const primaryCalendar = calendars.find((cal: any) => cal.primary) || calendars[0];
+        const calendarId = primaryCalendar.id;
+        
+        // Create events for each address
+        const eventPromises = addresses.map((address, index) => {
+          // Calculate event time (1 hour per address, starting from current time)
+          const startTime = new Date(routeDate);
+          startTime.setHours(startTime.getHours() + index);
+          
+          const endTime = new Date(startTime);
+          endTime.setMinutes(endTime.getMinutes() + (address.time_spent || 60));
+          
+          const event = {
+            summary: `Visit: ${address.address}`,
+            location: address.address,
+            description: address.notes || 'Route stop',
+            start: {
+              dateTime: startTime.toISOString(),
+              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+            },
+            end: {
+              dateTime: endTime.toISOString(),
+              timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+            }
+          };
+          
+          return window.gapi.client.calendar.events.insert({
+            calendarId: calendarId,
+            resource: event
+          });
+        });
+        
+        // Wait for all events to be created
+        Promise.all(eventPromises)
+          .then((results) => {
+            console.log('Successfully exported route to Google Calendar');
+            const eventIds = results.map((result: any) => result.result.id);
+            resolve(eventIds);
+          })
+          .catch((error) => {
+            console.error('Error creating calendar events:', error);
+            reject(error);
+          });
+      }).catch((error: any) => {
+        console.error('Error getting calendar list:', error);
+        reject(error);
       });
-      
-      eventIds.push(response.result.id);
-      console.log('Calendar event created successfully');
-      
-      // Update current time for the next event
-      // Add travel time (estimated as 15 minutes between stops)
-      currentTime = new Date(endTime);
-      currentTime.setMinutes(currentTime.getMinutes() + 15);
     } catch (error) {
-      console.error('Error creating calendar event:', error);
-      throw error;
+      console.error('Error exporting route to Google Calendar:', error);
+      reject(error instanceof Error ? error : new Error('Unknown error exporting route to Google Calendar'));
     }
-  }
-  
-  return eventIds;
-};
-
-// Get user's Google Calendar list
-export const getCalendarList = async (): Promise<any[]> => {
-  if (!isBrowser) {
-    throw new Error('Google Calendar API can only be used in browser environment');
-  }
-  
-  if (!isLoaded) {
-    await loadGoogleCalendarApi();
-  }
-  
-  if (!window.gapi?.client?.calendar) {
-    throw new Error('Google Calendar API not loaded correctly');
-  }
-  
-  if (!isSignedInToGoogle()) {
-    await signInToGoogle();
-  }
-  
-  try {
-    const response = await window.gapi.client.calendar.calendarList.list();
-    return response.result.items || [];
-  } catch (error) {
-    console.error('Error getting calendar list:', error);
-    throw error;
-  }
+  });
 };
 
 // Add TypeScript interface for the global window object
 declare global {
   interface Window {
     gapi: any;
+    google: any;
   }
 }
