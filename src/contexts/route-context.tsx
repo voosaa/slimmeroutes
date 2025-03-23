@@ -1,9 +1,10 @@
 "use client"
 
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import { Address, Route, getAddresses, addAddress, deleteAddress, createRoute, getRoutes } from '@/lib/supabase'
-import { geocodeAddress, optimizeRoute } from '@/lib/route-optimizer'
+import { Address, Route, getAddresses, addAddress, deleteAddress, createRoute, getRoutes, createMultiDriverRoute, getDriverRoutes, DriverRoute } from '@/lib/supabase'
+import { geocodeAddress, optimizeRoute, optimizeMultiDriverRoute } from '@/lib/route-optimizer'
 import { useToast } from '@/components/ui/use-toast'
+import { useDriver } from './driver-context'
 
 type RouteContextType = {
   addresses: Address[]
@@ -13,7 +14,11 @@ type RouteContextType = {
   removeAddress: (id: string) => Promise<void>
   clearAddresses: () => void
   generateRoute: (name: string) => Promise<Route | null>
+  generateMultiDriverRoute: (name: string) => Promise<Route | null>
   isGeneratingRoute: boolean
+  driverRoutes: DriverRoute[]
+  setDriverRoutes: React.Dispatch<React.SetStateAction<DriverRoute[]>>
+  loadAddresses: () => Promise<void>
 }
 
 const RouteContext = createContext<RouteContextType | undefined>(undefined)
@@ -21,9 +26,11 @@ const RouteContext = createContext<RouteContextType | undefined>(undefined)
 export function RouteProvider({ children }: { children: React.ReactNode }) {
   const [addresses, setAddresses] = useState<Address[]>([])
   const [routes, setRoutes] = useState<Route[]>([])
+  const [driverRoutes, setDriverRoutes] = useState<DriverRoute[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isGeneratingRoute, setIsGeneratingRoute] = useState(false)
   const { toast } = useToast()
+  const { selectedDriverIds, getSelectedDrivers } = useDriver()
 
   useEffect(() => {
     // Load addresses and routes when the component mounts
@@ -176,6 +183,94 @@ export function RouteProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const generateMultiDriverRoute = async (name: string) => {
+    try {
+      setIsGeneratingRoute(true)
+      
+      if (addresses.length < 2) {
+        throw new Error('You need at least 2 addresses to generate a route')
+      }
+      
+      if (selectedDriverIds.length === 0) {
+        throw new Error('You need to select at least one driver')
+      }
+      
+      // Get the selected drivers
+      const selectedDrivers = getSelectedDrivers()
+      
+      // Optimize routes for multiple drivers
+      const optimizedDriverRoutes = await optimizeMultiDriverRoute(addresses, selectedDrivers.length)
+      
+      // Map the driver IDs to the optimized routes
+      const driverRoutesWithIds = optimizedDriverRoutes.map((route, index) => ({
+        ...route,
+        driverId: selectedDrivers[index]?.id || `driver_${index}`,
+      }))
+      
+      // Create driver routes objects
+      const driverRoutesData = driverRoutesWithIds.map(route => ({
+        driver_id: route.driverId,
+        addresses: route.addresses,
+        optimized_order: route.optimizedOrder,
+        total_distance: route.totalDistance,
+        total_duration: route.totalDuration
+      }))
+      
+      // Create the multi-driver route in the database
+      const { data, error } = await createMultiDriverRoute(
+        name,
+        selectedDriverIds,
+        addresses,
+        driverRoutesData as any
+      )
+      
+      if (error) {
+        throw new Error(error.message)
+      }
+      
+      // Update the local state
+      if (data && data.length > 0) {
+        const newRoute = data[0]
+        setRoutes(prev => [newRoute, ...prev])
+        
+        // Store the driver routes
+        setDriverRoutes(driverRoutesData as any)
+        
+        toast({
+          title: 'Multi-driver route generated',
+          description: 'Your optimal routes for multiple drivers have been generated successfully.'
+        })
+        return newRoute
+      }
+      
+      return null
+    } catch (error) {
+      console.error('Error generating multi-driver route:', error)
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to generate multi-driver route',
+        variant: 'destructive'
+      })
+      return null
+    } finally {
+      setIsGeneratingRoute(false)
+    }
+  }
+
+  const loadAddresses = async () => {
+    try {
+      const { data, error } = await getAddresses()
+      
+      if (error) {
+        throw new Error(error.message)
+      }
+      
+      setAddresses(data || [])
+    } catch (error) {
+      console.error('Error loading addresses:', error)
+    }
+  }
+
   const value = {
     addresses,
     routes,
@@ -184,7 +279,11 @@ export function RouteProvider({ children }: { children: React.ReactNode }) {
     removeAddress,
     clearAddresses,
     generateRoute,
-    isGeneratingRoute
+    generateMultiDriverRoute,
+    isGeneratingRoute,
+    driverRoutes,
+    setDriverRoutes,
+    loadAddresses
   }
 
   return <RouteContext.Provider value={value}>{children}</RouteContext.Provider>

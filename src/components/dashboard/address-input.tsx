@@ -285,24 +285,31 @@ export function AddressInput({ onAddAddress }: AddressInputProps) {
       const lng = results[0].geometry.location.lng()
       console.log("Geocoded coordinates:", lat, lng)
       
-      // Create a new address object
-      const newAddress: Address = {
-        id: uuidv4(),
-        user_id: user?.id || 'current-user', // Use actual user ID if available
-        address: address,
-        lat,
-        lng,
-        notes: notes || null,
-        created_at: new Date().toISOString()
+      // Save to database first
+      const { data, error } = await supabase
+        .from('addresses')
+        .insert({
+          user_id: user?.id,
+          address: address,
+          lat,
+          lng,
+          notes: notes || '',
+        })
+        .select()
+      
+      if (error) {
+        throw new Error(`Failed to save address to database: ${error.message}`)
       }
       
-      console.log("New address object:", newAddress)
+      // Use the database-generated address with proper ID
+      const savedAddress = data[0]
+      console.log("Saved address:", savedAddress)
       
-      // Add the address
-      onAddAddress(newAddress)
+      // Add the address to the UI via callback
+      onAddAddress(savedAddress)
       
       // Add to frequent addresses
-      await addToFrequentAddresses(newAddress)
+      await addToFrequentAddresses(savedAddress)
       
       // Reset form
       setAddress('')

@@ -45,8 +45,12 @@ import {
   DollarSign, 
   Car, 
   Fuel, 
-  Wrench 
+  Wrench,
+  Users,
+  FileUp,
+  Upload
 } from 'lucide-react'
+import { DriverAddressImporter } from '@/components/file-upload/driver-address-importer'
 
 // Sample data for analytics
 const weeklyData = [
@@ -81,6 +85,34 @@ export default function DashboardPage() {
   const { user } = useAuth()
   const { toast } = useToast()
   const [error, setError] = useState<string | null>(null)
+  const [activeStep, setActiveStep] = useState(1)
+
+  // Fetch addresses on component mount
+  useEffect(() => {
+    if (user) {
+      fetchAddresses()
+    }
+  }, [user])
+
+  const fetchAddresses = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('addresses')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error fetching addresses:', error)
+        setError('Failed to fetch addresses')
+      } else {
+        setAddresses(data || [])
+      }
+    } catch (error) {
+      console.error('Error fetching addresses:', error)
+      setError('Failed to fetch addresses')
+    }
+  }
 
   // Use useEffect to handle side effects and state changes
   useEffect(() => {
@@ -138,35 +170,63 @@ export default function DashboardPage() {
     if (!id) return
     
     try {
-      // Update local state
-      setAddresses(addresses.map(addr => 
-        addr.id === id ? { ...addr, ...updates } : addr
-      ))
+      const { error } = await supabase
+        .from('addresses')
+        .update(updates)
+        .eq('id', id)
+        .eq('user_id', user?.id)
       
-      // Update in Supabase if user is logged in
-      if (user) {
-        const { data, error } = await supabase
-          .from('addresses')
-          .update(updates)
-          .eq('id', id)
-          .eq('user_id', user.id)
-        
-        if (error) {
-          console.error('Error updating address:', error)
-          toast({
-            title: 'Error',
-            description: 'Failed to update address',
-            variant: 'destructive'
-          })
-        } else {
-          console.log('Address updated successfully:', id, updates)
-        }
-      }
+      if (error) throw error
+      
+      setAddresses(prev => 
+        prev.map(addr => addr.id === id ? { ...addr, ...updates } : addr)
+      )
     } catch (error) {
       console.error('Error updating address:', error)
       toast({
         title: 'Error',
         description: 'Failed to update address',
+        variant: 'destructive'
+      })
+    }
+  }
+
+  const handleDeleteAllAddresses = async () => {
+    if (!user) return
+    
+    try {
+      // Delete all addresses from the database
+      const { error } = await supabase
+        .from('addresses')
+        .delete()
+        .eq('user_id', user.id)
+      
+      if (error) throw error
+      
+      // Clear addresses from state
+      setAddresses([])
+      
+      // Reset optimized route
+      setOptimizedOrder([])
+      
+      // Reset route stats
+      setRouteStats({
+        totalDistance: 0,
+        totalTime: 0,
+        fuelCost: 0,
+        timeCost: 0,
+        maintenanceCost: 0
+      })
+      
+      toast({
+        title: 'Success',
+        description: 'All addresses have been deleted',
+      })
+    } catch (error) {
+      console.error('Error deleting all addresses:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to delete all addresses',
         variant: 'destructive'
       })
     }
@@ -371,93 +431,178 @@ export default function DashboardPage() {
       )}
       
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <h1 className="text-2xl font-bold text-gray-900">SlimmeRoutes Dashboard</h1>
         <div className="flex space-x-2">
-          <Button 
-            onClick={handleGenerateRoute}
-            disabled={addresses.length < 2 || isGeneratingRoute}
-            className="bg-emerald-600 hover:bg-emerald-700 flex items-center"
-          >
-            <Route className="mr-2 h-4 w-4" />
-            {isGeneratingRoute ? 'Generating...' : 'Generate Route'}
-          </Button>
+          {addresses.length >= 2 && (
+            <Button 
+              onClick={() => {
+                setActiveStep(3);
+                handleGenerateRoute();
+              }}
+              disabled={isGeneratingRoute}
+              className="bg-emerald-600 hover:bg-emerald-700 flex items-center"
+            >
+              <Route className="mr-2 h-4 w-4" />
+              {isGeneratingRoute ? 'Generating...' : 'Generate Route'}
+            </Button>
+          )}
         </div>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Stats Cards */}
-        <div className="bg-white rounded-lg shadow p-6 flex items-center border-l-4 border-emerald-500">
-          <div className="rounded-full bg-emerald-100 p-3 mr-4">
-            <MapPin className="h-6 w-6 text-emerald-600" />
+      {/* Stats Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div className="bg-white rounded-lg shadow p-4 flex items-center">
+          <div className="rounded-full bg-emerald-100 p-2 mr-3">
+            <MapPin className="h-5 w-5 text-emerald-600" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-500">Total Addresses</p>
-            <p className="text-2xl font-bold text-gray-900">{addresses.length}</p>
+            <p className="text-sm font-medium text-gray-500">Addresses</p>
+            <p className="text-xl font-bold text-gray-900">{addresses.length}</p>
           </div>
         </div>
         
-        <div className="bg-white rounded-lg shadow p-6 flex items-center border-l-4 border-blue-500">
-          <div className="rounded-full bg-blue-100 p-3 mr-4">
-            <Route className="h-6 w-6 text-blue-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-500">Total Distance</p>
-            <p className="text-2xl font-bold text-gray-900">{routeStats.totalDistance.toFixed(1)} km</p>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-lg shadow p-6 flex items-center border-l-4 border-purple-500">
-          <div className="rounded-full bg-purple-100 p-3 mr-4">
-            <Clock className="h-6 w-6 text-purple-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-500">Estimated Time</p>
-            <p className="text-2xl font-bold text-gray-900">
-              {Math.floor(routeStats.totalTime / 60)}h {Math.round(routeStats.totalTime % 60)}m
-            </p>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-lg shadow p-6 flex items-center border-l-4 border-amber-500">
-          <div className="rounded-full bg-amber-100 p-3 mr-4">
-            <DollarSign className="h-6 w-6 text-amber-600" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-500">Total Cost</p>
-            <p className="text-2xl font-bold text-gray-900">
-              €{(routeStats.fuelCost + routeStats.timeCost + routeStats.maintenanceCost).toFixed(2)}
-            </p>
-          </div>
-        </div>
+        {optimizedOrder.length > 0 && (
+          <>
+            <div className="bg-white rounded-lg shadow p-4 flex items-center">
+              <div className="rounded-full bg-blue-100 p-2 mr-3">
+                <Route className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-500">Distance</p>
+                <p className="text-xl font-bold text-gray-900">{routeStats.totalDistance.toFixed(1)} km</p>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg shadow p-4 flex items-center">
+              <div className="rounded-full bg-purple-100 p-2 mr-3">
+                <Clock className="h-5 w-5 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-500">Time</p>
+                <p className="text-xl font-bold text-gray-900">
+                  {Math.floor(routeStats.totalTime / 60)}h {Math.round(routeStats.totalTime % 60)}m
+                </p>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg shadow p-4 flex items-center">
+              <div className="rounded-full bg-amber-100 p-2 mr-3">
+                <DollarSign className="h-5 w-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-500">Cost</p>
+                <p className="text-xl font-bold text-gray-900">
+                  €{(routeStats.fuelCost + routeStats.timeCost + routeStats.maintenanceCost).toFixed(2)}
+                </p>
+              </div>
+            </div>
+          </>
+        )}
       </div>
       
-      <div className="mt-8">
-        <Tabs defaultValue="route" className="w-full">
-          <TabsList className="bg-white rounded-lg shadow mb-6 p-1">
-            <TabsTrigger 
-              value="route" 
-              className="data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-600 rounded-md px-4 py-2"
-            >
-              Route Planning
-            </TabsTrigger>
-            <TabsTrigger 
-              value="calculator" 
-              className="data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-600 rounded-md px-4 py-2"
-            >
-              Cost Calculator
-            </TabsTrigger>
-            <TabsTrigger 
-              value="analytics" 
-              className="data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-600 rounded-md px-4 py-2"
-            >
-              Analytics
-            </TabsTrigger>
-          </TabsList>
+      {/* Workflow Steps */}
+      <div className="bg-white rounded-lg shadow p-6 mb-8">
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Route Optimization Workflow</h2>
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className={`flex-1 p-6 rounded-lg border-2 ${activeStep === 1 ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+            <div className="flex items-center mb-4">
+              <div className={`rounded-full p-2 mr-2 ${activeStep === 1 ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
+                <span className="flex items-center justify-center h-6 w-6 text-lg font-bold">1</span>
+              </div>
+              <h3 className="text-lg font-medium">Add/Import Addresses</h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">Add addresses manually or import from CSV/Excel files</p>
+            <div className="flex flex-col space-y-2">
+              <Button 
+                variant={activeStep === 1 ? "default" : "outline"} 
+                className="w-full"
+                onClick={() => setActiveStep(1)}
+              >
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Add Addresses
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => {
+                  document.getElementById('import-tab-trigger')?.click();
+                  setActiveStep(1);
+                }}
+              >
+                <FileUp className="mr-2 h-4 w-4" />
+                Import from CSV/Excel
+              </Button>
+            </div>
+          </div>
           
-          <TabsContent value="route">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-1 space-y-6">
-                <div className="bg-white rounded-lg shadow">
+          <div className={`flex-1 p-6 rounded-lg border-2 ${activeStep === 2 ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+            <div className="flex items-center mb-4">
+              <div className={`rounded-full p-2 mr-2 ${activeStep === 2 ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
+                <span className="flex items-center justify-center h-6 w-6 text-lg font-bold">2</span>
+              </div>
+              <h3 className="text-lg font-medium">Select Drivers</h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">Choose drivers for your multi-driver route optimization</p>
+            <div className="flex flex-col space-y-2">
+              <Link href="/dashboard/drivers">
+                <Button 
+                  variant={activeStep === 2 ? "default" : "outline"} 
+                  className="w-full"
+                  onClick={() => setActiveStep(2)}
+                >
+                  <Users className="mr-2 h-4 w-4" />
+                  Manage Drivers
+                </Button>
+              </Link>
+            </div>
+          </div>
+          
+          <div className={`flex-1 p-6 rounded-lg border-2 ${activeStep === 3 ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+            <div className="flex items-center mb-4">
+              <div className={`rounded-full p-2 mr-2 ${activeStep === 3 ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
+                <span className="flex items-center justify-center h-6 w-6 text-lg font-bold">3</span>
+              </div>
+              <h3 className="text-lg font-medium">Optimize Routes</h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">Generate optimized routes for your drivers</p>
+            <div className="flex flex-col space-y-2">
+              <Button 
+                variant={activeStep === 3 ? "default" : "outline"} 
+                className="w-full"
+                onClick={() => {
+                  setActiveStep(3);
+                  if (addresses.length >= 2) {
+                    handleGenerateRoute();
+                  } else {
+                    toast({
+                      title: "Not enough addresses",
+                      description: "You need at least 2 addresses to generate a route",
+                      variant: "destructive"
+                    });
+                  }
+                }}
+                disabled={addresses.length < 2}
+              >
+                <Route className="mr-2 h-4 w-4" />
+                Generate Optimized Routes
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Main Content Area - Changes based on active step */}
+      {activeStep === 1 && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1">
+            <Tabs defaultValue="add" className="w-full">
+              <TabsList className="w-full mb-4">
+                <TabsTrigger value="add" className="flex-1">Add Address</TabsTrigger>
+                <TabsTrigger id="import-tab-trigger" value="import" className="flex-1">Import</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="add">
+                <div className="bg-white rounded-lg shadow mb-6">
                   <div className="p-6 border-b border-gray-200">
                     <h2 className="text-lg font-medium text-gray-900">Add Address</h2>
                     <p className="text-sm text-gray-500">Enter an address to add to your route</p>
@@ -466,209 +611,202 @@ export default function DashboardPage() {
                     <AddressInput onAddAddress={handleAddAddress} />
                   </div>
                 </div>
-                
-                <div className="bg-white rounded-lg shadow">
-                  <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-                    <div>
-                      <h2 className="text-lg font-medium text-gray-900">Your Addresses</h2>
-                      <p className="text-sm text-gray-500">Manage your list of addresses</p>
-                    </div>
-                  </div>
-                  <div className="p-6">
-                    <AddressList 
-                      addresses={addresses} 
-                      onDeleteAddress={handleDeleteAddress} 
-                      onUpdateAddress={handleUpdateAddress}
-                    />
-                  </div>
-                </div>
-              </div>
+              </TabsContent>
               
-              <div className="lg:col-span-2">
-                {addresses.length >= 2 && (
-                  <RouteOptimizer 
-                    addresses={addresses} 
-                    onOptimizeRoute={handleOptimizeRoute} 
-                  />
-                )}
-                
-                <div className="bg-white rounded-lg shadow h-full">
+              <TabsContent value="import">
+                <div className="bg-white rounded-lg shadow mb-6">
                   <div className="p-6 border-b border-gray-200">
-                    <h2 className="text-lg font-medium text-gray-900">Route Map</h2>
-                    <p className="text-sm text-gray-500">
-                      {optimizedOrder.length > 0 
-                        ? `Optimized route with ${addresses.length} stops` 
-                        : 'Add addresses to see them on the map'}
-                    </p>
+                    <h2 className="text-lg font-medium text-gray-900">Import Addresses</h2>
+                    <p className="text-sm text-gray-500">Import from CSV or Excel files</p>
                   </div>
                   <div className="p-6">
-                    {addresses.length === 0 ? (
-                      <div className="bg-gray-50 rounded-lg p-8 flex flex-col items-center justify-center min-h-[400px]">
-                        <div className="bg-gray-100 rounded-full p-3 mb-4">
-                          <MapPin className="h-6 w-6 text-gray-400" />
-                        </div>
-                        <p className="text-gray-600 mb-2 text-center">Add addresses to see them on the map.</p>
-                        <p className="text-sm text-gray-500 text-center">
-                          You'll be able to generate an optimized route once you have at least 2 addresses.
-                        </p>
-                      </div>
-                    ) : (
-                      <MapComponent 
-                        addresses={addresses} 
-                        optimizedOrder={optimizedOrder} 
-                      />
-                    )}
-                    
-                    {optimizedOrder.length > 0 && (
-                      <div className="mt-8">
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-                          <h3 className="text-lg font-medium text-gray-900 mb-4">Cost Breakdown</h3>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="bg-blue-50 rounded-lg p-4 flex items-start">
-                              <div className="rounded-full bg-blue-100 p-2 mr-3">
-                                <Fuel className="h-5 w-5 text-blue-600" />
-                              </div>
-                              <div>
-                                <h4 className="text-sm font-medium text-gray-700 mb-1">Fuel Cost</h4>
-                                <p className="text-lg font-bold text-blue-600">€{routeStats.fuelCost.toFixed(2)}</p>
-                                <p className="text-xs text-gray-500">Based on current fuel prices</p>
-                              </div>
-                            </div>
-                            
-                            <div className="bg-emerald-50 rounded-lg p-4 flex items-start">
-                              <div className="rounded-full bg-emerald-100 p-2 mr-3">
-                                <Clock className="h-5 w-5 text-emerald-600" />
-                              </div>
-                              <div>
-                                <h4 className="text-sm font-medium text-gray-700 mb-1">Time Cost</h4>
-                                <p className="text-lg font-bold text-emerald-600">€{routeStats.timeCost.toFixed(2)}</p>
-                                <p className="text-xs text-gray-500">Based on hourly rate</p>
-                              </div>
-                            </div>
-                            
-                            <div className="bg-amber-50 rounded-lg p-4 flex items-start">
-                              <div className="rounded-full bg-amber-100 p-2 mr-3">
-                                <Wrench className="h-5 w-5 text-amber-600" />
-                              </div>
-                              <div>
-                                <h4 className="text-sm font-medium text-gray-700 mb-1">Maintenance</h4>
-                                <p className="text-lg font-bold text-amber-600">€{routeStats.maintenanceCost.toFixed(2)}</p>
-                                <p className="text-xs text-gray-500">Estimated wear and tear</p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                          <h3 className="text-lg font-medium text-gray-900 mb-4">Optimized Schedule</h3>
-                          <ScheduleView 
-                            addresses={addresses} 
-                            optimizedOrder={optimizedOrder} 
-                          />
-                        </div>
-                      </div>
-                    )}
+                    <DriverAddressImporter onImportComplete={(newAddresses) => {
+                      // Add the newly imported addresses to the state
+                      setAddresses(prev => [...newAddresses, ...prev]);
+                      toast({
+                        title: "Addresses Imported",
+                        description: `Successfully imported ${newAddresses.length} addresses`,
+                        variant: "default"
+                      });
+                    }} />
                   </div>
                 </div>
-              </div>
-            </div>
-          </TabsContent>
+              </TabsContent>
+            </Tabs>
+          </div>
           
-          <TabsContent value="calculator">
-            <div className="bg-white rounded-lg shadow">
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-lg shadow mb-6">
               <div className="p-6 border-b border-gray-200">
-                <h2 className="text-lg font-medium text-gray-900">Cost Calculator</h2>
-                <p className="text-sm text-gray-500">Calculate and compare costs for different vehicles and scenarios</p>
+                <h2 className="text-lg font-medium text-gray-900">Your Addresses</h2>
+                <p className="text-sm text-gray-500">Manage your list of addresses</p>
               </div>
               <div className="p-6">
-                <CostCalculator 
-                  totalDistance={routeStats.totalDistance} 
-                  totalTime={routeStats.totalTime} 
+                <AddressList 
+                  addresses={addresses} 
+                  onDeleteAddress={handleDeleteAddress} 
+                  onDeleteAllAddresses={handleDeleteAllAddresses}
+                  onUpdateAddress={handleUpdateAddress} 
                 />
               </div>
             </div>
-          </TabsContent>
-          
-          <TabsContent value="analytics">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            {addresses.length > 0 && (
               <div className="bg-white rounded-lg shadow">
                 <div className="p-6 border-b border-gray-200">
-                  <h2 className="text-lg font-medium text-gray-900">Weekly Distance</h2>
-                  <p className="text-sm text-gray-500">Total distance traveled per day</p>
+                  <h2 className="text-lg font-medium text-gray-900">Address Map</h2>
+                  <p className="text-sm text-gray-500">
+                    {addresses.length} addresses on the map
+                  </p>
                 </div>
                 <div className="p-6">
-                  <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={weeklyData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend />
-                        <Bar dataKey="distance" name="Distance (km)" fill="#10b981" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
+                  <MapComponent 
+                    addresses={addresses} 
+                    optimizedOrder={optimizedOrder} 
+                  />
                 </div>
               </div>
-              
-              <div className="bg-white rounded-lg shadow">
-                <div className="p-6 border-b border-gray-200">
-                  <h2 className="text-lg font-medium text-gray-900">Cost Breakdown</h2>
-                  <p className="text-sm text-gray-500">Distribution of costs by category</p>
-                </div>
-                <div className="p-6">
-                  <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={costBreakdownData}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          outerRadius={80}
-                          fill="#8884d8"
-                          dataKey="value"
-                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                        >
-                          {costBreakdownData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
+            )}
+          </div>
+        </div>
+      )}
+      
+      {activeStep === 2 && (
+        <div className="bg-white rounded-lg shadow">
+          <div className="p-6 border-b border-gray-200">
+            <h2 className="text-lg font-medium text-gray-900">Driver Management</h2>
+            <p className="text-sm text-gray-500">Select and manage your drivers</p>
+          </div>
+          <div className="p-6">
+            <div className="flex flex-col items-center justify-center py-8">
+              <Users className="h-16 w-16 text-blue-500 mb-4" />
+              <h3 className="text-lg font-medium mb-2">Manage Your Drivers</h3>
+              <p className="text-sm text-gray-500 text-center max-w-md mb-6">
+                Add, edit, and select drivers for your multi-driver route optimization.
+              </p>
+              <Link href="/dashboard/drivers">
+                <Button size="lg">
+                  Go to Driver Management
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {activeStep === 3 && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-lg shadow mb-6">
+              <div className="p-6 border-b border-gray-200">
+                <h2 className="text-lg font-medium text-gray-900">Route Options</h2>
+                <p className="text-sm text-gray-500">Choose your route type</p>
               </div>
-              
-              <div className="bg-white rounded-lg shadow lg:col-span-2">
-                <div className="p-6 border-b border-gray-200">
-                  <h2 className="text-lg font-medium text-gray-900">Weekly Metrics</h2>
-                  <p className="text-sm text-gray-500">Comparison of distance, time, and cost</p>
-                </div>
-                <div className="p-6">
-                  <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={weeklyData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis yAxisId="left" orientation="left" stroke="#10b981" />
-                        <YAxis yAxisId="right" orientation="right" stroke="#6366f1" />
-                        <Tooltip />
-                        <Legend />
-                        <Bar yAxisId="left" dataKey="distance" name="Distance (km)" fill="#10b981" />
-                        <Bar yAxisId="left" dataKey="time" name="Time (min)" fill="#6366f1" />
-                        <Bar yAxisId="right" dataKey="cost" name="Cost (€)" fill="#f59e0b" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
+              <div className="p-6">
+                <div className="flex flex-col space-y-4">
+                  <Button 
+                    className="w-full"
+                    onClick={handleGenerateRoute}
+                    disabled={addresses.length < 2 || isGeneratingRoute}
+                  >
+                    <Route className="mr-2 h-4 w-4" />
+                    {isGeneratingRoute ? 'Generating...' : 'Single Driver Route'}
+                  </Button>
+                  <Link href="/dashboard/drivers?tab=multi-driver-routes">
+                    <Button variant="outline" className="w-full">
+                      <Users className="mr-2 h-4 w-4" />
+                      Multi-Driver Routes
+                    </Button>
+                  </Link>
                 </div>
               </div>
             </div>
-          </TabsContent>
-        </Tabs>
-      </div>
+            
+            {optimizedOrder.length > 0 && (
+              <div className="bg-white rounded-lg shadow">
+                <div className="p-6 border-b border-gray-200">
+                  <h2 className="text-lg font-medium text-gray-900">Route Statistics</h2>
+                  <p className="text-sm text-gray-500">Details about your optimized route</p>
+                </div>
+                <div className="p-6">
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+                      <span className="text-sm text-gray-600">Total Distance:</span>
+                      <span className="font-medium">{routeStats.totalDistance.toFixed(1)} km</span>
+                    </div>
+                    <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+                      <span className="text-sm text-gray-600">Estimated Time:</span>
+                      <span className="font-medium">{Math.floor(routeStats.totalTime / 60)}h {Math.round(routeStats.totalTime % 60)}m</span>
+                    </div>
+                    <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+                      <span className="text-sm text-gray-600">Fuel Cost:</span>
+                      <span className="font-medium">€{routeStats.fuelCost.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+                      <span className="text-sm text-gray-600">Time Cost:</span>
+                      <span className="font-medium">€{routeStats.timeCost.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+                      <span className="text-sm text-gray-600">Maintenance:</span>
+                      <span className="font-medium">€{routeStats.maintenanceCost.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center pt-2 font-medium">
+                      <span>Total Cost:</span>
+                      <span className="text-emerald-600">€{(routeStats.fuelCost + routeStats.timeCost + routeStats.maintenanceCost).toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <div className="lg:col-span-2">
+            {optimizedOrder.length > 0 ? (
+              <div className="bg-white rounded-lg shadow">
+                <div className="p-6 border-b border-gray-200">
+                  <h2 className="text-lg font-medium text-gray-900">Optimized Route</h2>
+                  <p className="text-sm text-gray-500">
+                    The most efficient route for {addresses.length} addresses
+                  </p>
+                </div>
+                <div className="p-6">
+                  <MapComponent 
+                    addresses={addresses} 
+                    optimizedOrder={optimizedOrder} 
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow">
+                <div className="p-6 border-b border-gray-200">
+                  <h2 className="text-lg font-medium text-gray-900">Generate a Route</h2>
+                  <p className="text-sm text-gray-500">
+                    Click the button to optimize your route
+                  </p>
+                </div>
+                <div className="p-6">
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <Route className="h-16 w-16 text-gray-300 mb-4" />
+                    <h3 className="text-lg font-medium mb-2">No Route Generated Yet</h3>
+                    <p className="text-sm text-gray-500 text-center max-w-md mb-6">
+                      {addresses.length < 2 
+                        ? "Add at least 2 addresses to generate an optimized route." 
+                        : "Click the Generate Route button to create an optimized route for your addresses."}
+                    </p>
+                    <Button 
+                      onClick={handleGenerateRoute}
+                      disabled={addresses.length < 2 || isGeneratingRoute}
+                    >
+                      <Route className="mr-2 h-4 w-4" />
+                      {isGeneratingRoute ? 'Generating...' : 'Generate Route'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </AppShell>
   )
 }
