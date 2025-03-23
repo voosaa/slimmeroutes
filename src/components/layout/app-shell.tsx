@@ -14,7 +14,8 @@ import {
   X, 
   LogOut,
   User,
-  HelpCircle
+  HelpCircle,
+  Users
 } from 'lucide-react'
 
 interface AppShellProps {
@@ -30,7 +31,8 @@ export function AppShell({ children }: AppShellProps) {
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
-    { name: 'Route Planning', href: '/dashboard/route', icon: Map },
+    { name: 'Routes', href: '/dashboard/routes', icon: Map },
+    { name: 'Drivers', href: '/dashboard/drivers', icon: Users },
     { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart2 },
     { name: 'Settings', href: '/dashboard/settings', icon: Settings },
   ]
@@ -46,17 +48,17 @@ export function AppShell({ children }: AppShellProps) {
               {sidebarOpen ? (
                 <div className="flex items-center">
                   <img 
-                    src="/images/logo/slimmeroutes-logo.svg" 
+                    src="/logo.svg" 
                     alt="SlimmeRoutes Logo" 
                     className="h-8"
                   />
                 </div>
               ) : (
-                <div className="w-8 h-8 flex items-center justify-center">
+                <div className="flex items-center justify-center w-10 h-10">
                   <img 
-                    src="/images/logo/slimmeroutes-icon.svg" 
+                    src="/logo-icon.svg" 
                     alt="SlimmeRoutes Icon" 
-                    className="w-full h-full"
+                    className="h-8 w-8"
                   />
                 </div>
               )}

@@ -75,6 +75,172 @@ export async function optimizeRoute(addresses: Address[], startAddress?: Address
   }
 }
 
+// Multi-driver route optimization
+export async function optimizeMultiDriverRoute(addresses: Address[], driverCount: number, startAddresses?: Address[]) {
+  // If we have fewer addresses than drivers, assign one address to each driver
+  if (addresses.length <= driverCount) {
+    const result = addresses.map((address, index) => ({
+      driverId: `driver_${index}`,
+      addresses: [address],
+      optimizedOrder: [address.id],
+      totalDistance: 0,
+      totalDuration: 0
+    }));
+    
+    // Fill in empty routes for remaining drivers
+    for (let i = addresses.length; i < driverCount; i++) {
+      result.push({
+        driverId: `driver_${i}`,
+        addresses: [],
+        optimizedOrder: [],
+        totalDistance: 0,
+        totalDuration: 0
+      });
+    }
+    
+    return result;
+  }
+  
+  // Distribute addresses among drivers using a cluster-first, route-second approach
+  
+  // Step 1: Cluster addresses into driverCount groups
+  const clusters = clusterAddresses(addresses, driverCount);
+  
+  // Step 2: Optimize route for each cluster
+  const driverRoutes = [];
+  
+  for (let i = 0; i < clusters.length; i++) {
+    const cluster = clusters[i];
+    const startAddress = startAddresses && startAddresses[i] ? startAddresses[i] : undefined;
+    
+    if (cluster.length === 0) {
+      driverRoutes.push({
+        driverId: `driver_${i}`,
+        addresses: [],
+        optimizedOrder: [],
+        totalDistance: 0,
+        totalDuration: 0
+      });
+      continue;
+    }
+    
+    const { optimizedOrder, totalDistance, totalDuration } = await optimizeRoute(cluster, startAddress);
+    
+    driverRoutes.push({
+      driverId: `driver_${i}`,
+      addresses: cluster,
+      optimizedOrder,
+      totalDistance,
+      totalDuration
+    });
+  }
+  
+  return driverRoutes;
+}
+
+// Cluster addresses into groups based on proximity
+function clusterAddresses(addresses: Address[], clusterCount: number): Address[][] {
+  if (addresses.length <= clusterCount) {
+    // Return each address as its own cluster
+    return addresses.map(address => [address]);
+  }
+  
+  // Simple k-means clustering
+  // Initialize cluster centers randomly
+  const centers = [];
+  for (let i = 0; i < clusterCount; i++) {
+    const randomIndex = Math.floor(Math.random() * addresses.length);
+    centers.push({
+      lat: addresses[randomIndex].lat,
+      lng: addresses[randomIndex].lng
+    });
+  }
+  
+  // Assign addresses to clusters
+  let clusters: Address[][] = Array(clusterCount).fill(null).map(() => []);
+  let changed = true;
+  let iterations = 0;
+  const MAX_ITERATIONS = 10;
+  
+  while (changed && iterations < MAX_ITERATIONS) {
+    changed = false;
+    iterations++;
+    
+    // Reset clusters
+    clusters = Array(clusterCount).fill(null).map(() => []);
+    
+    // Assign each address to the nearest center
+    for (const address of addresses) {
+      let nearestCenterIndex = 0;
+      let minDistance = calculateDistance(
+        address.lat,
+        address.lng,
+        centers[0].lat,
+        centers[0].lng
+      );
+      
+      for (let i = 1; i < centers.length; i++) {
+        const distance = calculateDistance(
+          address.lat,
+          address.lng,
+          centers[i].lat,
+          centers[i].lng
+        );
+        
+        if (distance < minDistance) {
+          minDistance = distance;
+          nearestCenterIndex = i;
+        }
+      }
+      
+      clusters[nearestCenterIndex].push(address);
+    }
+    
+    // Recalculate centers
+    for (let i = 0; i < clusterCount; i++) {
+      if (clusters[i].length === 0) continue;
+      
+      const newCenter = {
+        lat: clusters[i].reduce((sum, addr) => sum + addr.lat, 0) / clusters[i].length,
+        lng: clusters[i].reduce((sum, addr) => sum + addr.lng, 0) / clusters[i].length
+      };
+      
+      // Check if center has changed significantly
+      const centerChanged = Math.abs(newCenter.lat - centers[i].lat) > 0.0001 ||
+                           Math.abs(newCenter.lng - centers[i].lng) > 0.0001;
+      
+      if (centerChanged) {
+        changed = true;
+        centers[i] = newCenter;
+      }
+    }
+  }
+  
+  // Handle empty clusters by redistributing addresses from the largest cluster
+  for (let i = 0; i < clusters.length; i++) {
+    if (clusters[i].length === 0) {
+      // Find the largest cluster
+      let largestClusterIndex = 0;
+      let maxSize = clusters[0].length;
+      
+      for (let j = 1; j < clusters.length; j++) {
+        if (clusters[j].length > maxSize) {
+          maxSize = clusters[j].length;
+          largestClusterIndex = j;
+        }
+      }
+      
+      // Take addresses from the largest cluster
+      if (clusters[largestClusterIndex].length > 1) {
+        const addressesToMove = Math.floor(clusters[largestClusterIndex].length / 2);
+        clusters[i] = clusters[largestClusterIndex].splice(0, addressesToMove);
+      }
+    }
+  }
+  
+  return clusters;
+}
+
 // Calculate distance between two points using the Haversine formula
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371 // Radius of the earth in km

@@ -23,6 +23,7 @@ interface AuthContextType {
   user: User | null
   profile: UserProfile | null
   session: Session | null
+  isLoading: boolean
   isSupabaseAvailable: boolean
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>
   signUp: (email: string, password: string, firstName?: string, lastName?: string, company?: string) => Promise<{ error: Error | null }>
@@ -92,21 +93,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
   
   const fetchProfile = async (userId: string) => {
-    if (!supabase) {
-      console.error('Supabase client not initialized')
-      return
-    }
-    
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single()
+        .maybeSingle() // Use maybeSingle instead of single to handle the case when no rows are returned
       
       if (error) throw error
       
-      setProfile(data)
+      if (data) {
+        setProfile(data)
+      } else {
+        // If no profile exists, create one
+        const { data: newProfile, error: createError } = await supabase
+          .from('profiles')
+          .insert([{ id: userId }])
+          .select()
+          .single()
+          
+        if (createError) throw createError
+        
+        setProfile(newProfile)
+      }
     } catch (error) {
       console.error('Error fetching profile:', error)
     }
@@ -206,6 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     profile,
     session,
+    isLoading: loading,
     isSupabaseAvailable: !!supabase,
     signIn,
     signUp,

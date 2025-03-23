@@ -64,7 +64,7 @@ export default function RegisterPage() {
         <div className="bg-white p-8 rounded-lg shadow-sm border border-neutral-100">
           <div className="text-center mb-6">
             <h1 className="text-2xl font-bold text-neutral-900">Create Your Account</h1>
-            <p className="text-neutral-500 mt-1">Sign up for DriveWise to get started</p>
+            <p className="text-neutral-500 mt-1">Sign up for SlimmeRoutes.nl to get started</p>
           </div>
           
           <form onSubmit={handleSubmit} className="space-y-4">

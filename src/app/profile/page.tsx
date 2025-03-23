@@ -137,10 +137,10 @@ export default function ProfilePage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Settings className="h-5 w-5" />
-                Preferences
+                Profile Settings
               </CardTitle>
               <CardDescription>
-                Customize your DriveWise experience
+                Customize your SlimmeRoutes.nl experience
               </CardDescription>
             </CardHeader>
             <CardContent>

@@ -21,11 +21,22 @@ export default function Home() {
       <header className="border-b border-neutral-200 py-4 sticky top-0 bg-white z-10">
         <div className="container mx-auto px-4 flex justify-between items-center">
           <Link href="/" className="flex items-center">
-            <img 
-              src="/images/logo/slimmeroutes-logo.svg" 
-              alt="SlimmeRoutes Logo" 
-              className="h-8"
-            />
+            <div className="flex items-center">
+              <img 
+                src="/logo.svg" 
+                alt="SlimmeRoutes Logo" 
+                className="h-8"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.onerror = null;
+                  target.src = "/images/logo/slimmeroutes-logo.png";
+                }}
+              />
+              {/* Fallback text in case image doesn't load */}
+              <span className="ml-2 font-bold text-emerald-600 text-xl hidden sm:inline-block">
+                SlimmeRoutes
+              </span>
+            </div>
           </Link>
           
           {/* Desktop Navigation */}

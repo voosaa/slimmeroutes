@@ -106,6 +106,28 @@ export type UserSettings = {
   updated_at?: string
 }
 
+export type Driver = {
+  id: string
+  user_id: string
+  name: string
+  email?: string
+  phone?: string
+  created_at: string
+  updated_at?: string
+  is_active: boolean
+}
+
+export type DriverRoute = {
+  id: string
+  route_id: string
+  driver_id: string
+  addresses: Address[]
+  optimized_order: string[]
+  total_distance: number
+  total_duration: number
+  created_at: string
+}
+
 // Auth functions
 export async function signUp(email: string, password: string, firstName: string, lastName: string, company?: string) {
   if (!supabase) return mockSupabaseResponse
@@ -340,19 +362,185 @@ export const incrementAddressUsage = async (addressId: string) => {
 }
 
 export const deleteFrequentAddress = async (addressId: string) => {
-  if (!supabase) return { error: new Error('Supabase client not initialized') }
+  if (!supabase) return mockSupabaseResponse
+  const { data: user } = await supabase.auth.getUser()
   
-  try {
-    const { error } = await supabase
-      .from('frequent_addresses')
-      .delete()
-      .eq('id', addressId)
-    
-    if (error) throw error
-    
-    return { error: null }
-  } catch (error) {
-    console.error('Error deleting frequent address:', error)
-    return { error }
+  if (!user.user) {
+    return { error: { message: 'Not authenticated' } }
   }
+  
+  const { error } = await supabase
+    .from('frequent_addresses')
+    .delete()
+    .eq('id', addressId)
+    .eq('user_id', user.user.id)
+  
+  return { error }
+}
+
+// Driver functions
+export async function getDrivers() {
+  if (!supabase) return mockSupabaseResponse
+  const { data: user } = await supabase.auth.getUser()
+  
+  if (!user.user) {
+    return { data: [], error: { message: 'Not authenticated' } }
+  }
+  
+  const { data, error } = await supabase
+    .from('drivers')
+    .select('*')
+    .eq('user_id', user.user.id)
+    .order('name', { ascending: true })
+  
+  return { data, error }
+}
+
+export async function addDriver(name: string, email?: string, phone?: string) {
+  if (!supabase) return mockSupabaseResponse
+  const { data: user } = await supabase.auth.getUser()
+  
+  if (!user.user) {
+    return { error: { message: 'Not authenticated' } }
+  }
+  
+  const { data, error } = await supabase
+    .from('drivers')
+    .insert([
+      {
+        user_id: user.user.id,
+        name,
+        email,
+        phone,
+        is_active: true
+      }
+    ])
+    .select()
+  
+  return { data, error }
+}
+
+export async function updateDriver(id: string, name: string, email?: string, phone?: string, is_active?: boolean) {
+  if (!supabase) return mockSupabaseResponse
+  const { data: user } = await supabase.auth.getUser()
+  
+  if (!user.user) {
+    return { error: { message: 'Not authenticated' } }
+  }
+  
+  const updateData: any = {
+    name,
+    email,
+    phone,
+    updated_at: new Date().toISOString()
+  }
+  
+  if (is_active !== undefined) {
+    updateData.is_active = is_active
+  }
+  
+  const { data, error } = await supabase
+    .from('drivers')
+    .update(updateData)
+    .eq('id', id)
+    .eq('user_id', user.user.id)
+    .select()
+  
+  return { data, error }
+}
+
+export async function deleteDriver(id: string) {
+  if (!supabase) return mockSupabaseResponse
+  const { data: user } = await supabase.auth.getUser()
+  
+  if (!user.user) {
+    return { error: { message: 'Not authenticated' } }
+  }
+  
+  const { error } = await supabase
+    .from('drivers')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', user.user.id)
+  
+  return { error }
+}
+
+// Multi-driver route functions
+export async function createMultiDriverRoute(
+  name: string, 
+  driverIds: string[], 
+  addresses: Address[], 
+  driverRoutes: DriverRoute[]
+) {
+  if (!supabase) return mockSupabaseResponse
+  const { data: user } = await supabase.auth.getUser()
+  
+  if (!user.user) {
+    return { error: { message: 'Not authenticated' } }
+  }
+  
+  // Calculate total distance and duration across all drivers
+  const totalDistance = driverRoutes.reduce((sum, route) => sum + route.total_distance, 0);
+  const totalDuration = driverRoutes.reduce((sum, route) => sum + route.total_duration, 0);
+  
+  // Start a transaction
+  const { data, error } = await supabase
+    .from('routes')
+    .insert([
+      {
+        user_id: user.user.id,
+        name,
+        addresses,
+        optimized_order: [], // No single optimized order for multi-driver routes
+        total_distance: totalDistance,
+        total_duration: totalDuration,
+        is_paid: false,
+        is_multi_driver: true,
+        driver_ids: driverIds
+      }
+    ])
+    .select()
+  
+  if (error || !data || data.length === 0) {
+    return { error: error || { message: 'Failed to create route' } }
+  }
+  
+  const routeId = data[0].id
+  
+  // Insert driver routes
+  const driverRoutesData = driverRoutes.map(dr => ({
+    route_id: routeId,
+    driver_id: dr.driver_id,
+    addresses: dr.addresses,
+    optimized_order: dr.optimized_order,
+    total_distance: dr.total_distance,
+    total_duration: dr.total_duration
+  }))
+  
+  const { error: driverRoutesError } = await supabase
+    .from('driver_routes')
+    .insert(driverRoutesData)
+  
+  if (driverRoutesError) {
+    return { error: driverRoutesError }
+  }
+  
+  return { data, error: null }
+}
+
+export async function getDriverRoutes(routeId: string) {
+  if (!supabase) return mockSupabaseResponse
+  const { data: user } = await supabase.auth.getUser()
+  
+  if (!user.user) {
+    return { data: [], error: { message: 'Not authenticated' } }
+  }
+  
+  const { data, error } = await supabase
+    .from('driver_routes')
+    .select('*')
+    .eq('route_id', routeId)
+  
+  return { data, error }
 }

@@ -4,6 +4,7 @@ import './globals.css'
 import { Toaster } from '@/components/ui/toaster'
 import { AuthProvider } from '@/contexts/auth-context'
 import { RouteProvider } from '@/contexts/route-context'
+import { DriverProvider } from '@/contexts/driver-context'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -36,10 +37,12 @@ export default function RootLayout({
     <html lang="en" className="h-full">
       <body className={`${inter.className} h-full antialiased`}>
         <AuthProvider>
-          <RouteProvider>
-            {children}
-            <Toaster />
-          </RouteProvider>
+          <DriverProvider>
+            <RouteProvider>
+              {children}
+              <Toaster />
+            </RouteProvider>
+          </DriverProvider>
         </AuthProvider>
       </body>
     </html>

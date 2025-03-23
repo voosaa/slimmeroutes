@@ -60,7 +60,7 @@ export default function LoginPage() {
         <div className="bg-white p-8 rounded-lg shadow-sm border border-neutral-100">
           <div className="text-center mb-6">
             <h1 className="text-2xl font-bold text-neutral-900">Welcome Back</h1>
-            <p className="text-neutral-500 mt-1">Sign in to your DriveWise account</p>
+            <p className="text-neutral-500 mt-1">Sign in to your SlimmeRoutes.nl account</p>
           </div>
           
           <form onSubmit={handleSubmit} className="space-y-4">
