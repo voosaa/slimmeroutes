@@ -5,6 +5,7 @@ import { Toaster } from '@/components/ui/toaster'
 import { AuthProvider } from '@/contexts/auth-context'
 import { RouteProvider } from '@/contexts/route-context'
 import { DriverProvider } from '@/contexts/driver-context'
+import Script from 'next/script'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -33,8 +34,18 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  // Get Google Maps API key from environment variables
+  const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
+
   return (
     <html lang="en" className="h-full">
+      <head>
+        {/* Load Google Maps API with places library */}
+        <Script
+          src={`https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=places`}
+          strategy="beforeInteractive"
+        />
+      </head>
       <body className={`${inter.className} h-full antialiased`}>
         <AuthProvider>
           <DriverProvider>

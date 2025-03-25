@@ -15,9 +15,19 @@ type AddressInputProps = {
   onAddAddress: (address: Address) => void
 }
 
+// Add proper type declaration for Google Maps
+declare global {
+  interface Window {
+    google: any;
+  }
+}
+
 export function AddressInput({ onAddAddress }: AddressInputProps) {
   const [address, setAddress] = useState('')
   const [notes, setNotes] = useState('')
+  const [timeSpent, setTimeSpent] = useState('')
+  const [appointmentTime, setAppointmentTime] = useState('')
+  const [appointmentWindow, setAppointmentWindow] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [googleLoaded, setGoogleLoaded] = useState(false)
   const [frequentAddresses, setFrequentAddresses] = useState<Address[]>([])
@@ -37,7 +47,27 @@ export function AddressInput({ onAddAddress }: AddressInputProps) {
     const initGoogleMaps = async () => {
       try {
         console.log("Initializing Google Maps API...")
-        const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+        
+        // First check if Google Maps is already loaded globally
+        if (window.google && window.google.maps && window.google.maps.places) {
+          console.log("Google Maps API already loaded globally")
+          googleRef.current = window.google
+          
+          // Initialize Autocomplete service
+          autocompleteRef.current = new window.google.maps.places.AutocompleteService()
+          
+          // Create a dummy div for PlacesService (required but not visible)
+          const placesDiv = document.createElement('div')
+          placesDiv.style.display = 'none'
+          document.body.appendChild(placesDiv)
+          
+          placesServiceRef.current = new window.google.maps.places.PlacesService(placesDiv)
+          setGoogleLoaded(true)
+          return
+        }
+        
+        // If not loaded globally, try to load it
+        const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY
         
         // Debug Google Maps API key
         console.log("Google Maps API Key:", apiKey ? "Set (length: " + apiKey.length + ")" : "Not set")
@@ -88,33 +118,51 @@ export function AddressInput({ onAddAddress }: AddressInputProps) {
     initGoogleMaps()
   }, [toast])
   
-  // Load frequent addresses from Supabase
+  // Load frequent addresses on component mount
   useEffect(() => {
     const loadFrequentAddresses = async () => {
-      if (!user || !supabase) return
-      
       try {
+        // Check if the user is authenticated
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError || !userData.user) {
+          console.log("User not authenticated, skipping frequent addresses load");
+          return;
+        }
+        
+        // First check if the frequent_addresses table exists
+        const { error: tableError } = await supabase
+          .from('frequent_addresses')
+          .select('count')
+          .limit(1)
+          .single();
+          
+        if (tableError) {
+          console.log("frequent_addresses table might not exist, skipping");
+          return;
+        }
+        
+        // If table exists, proceed with loading frequent addresses
         const { data, error } = await supabase
           .from('frequent_addresses')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', userData.user.id)
           .order('usage_count', { ascending: false })
-          .limit(5)
+          .limit(5);
+          
+        if (error) throw error;
         
-        if (error) throw error
-        
-        if (data) {
-          setFrequentAddresses(data as Address[])
-        }
+        setFrequentAddresses(data || []);
       } catch (error) {
-        console.error('Error loading frequent addresses:', error)
+        console.error('Error loading frequent addresses:', error);
+        // Don't show error toast to avoid user confusion
+        // Just silently fail and user won't see frequent addresses
       }
-    }
+    };
     
-    if (user) {
-      loadFrequentAddresses()
+    if (supabase) {
+      loadFrequentAddresses();
     }
-  }, [user])
+  }, [supabase]);
 
   const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
@@ -230,7 +278,7 @@ export function AddressInput({ onAddAddress }: AddressInputProps) {
     if (!googleLoaded) {
       toast({
         title: "Error",
-        description: "Google Maps API is not loaded yet",
+        description: "Google Maps API is not loaded yet. Please try again in a moment.",
         variant: "destructive"
       })
       return
@@ -249,85 +297,150 @@ export function AddressInput({ onAddAddress }: AddressInputProps) {
     console.log("Adding address:", address)
     
     try {
-      if (!googleRef.current) {
-        throw new Error('Google Maps API not loaded')
-      }
+      // Import the geocodeAddress function from our library
+      const { geocodeAddress } = await import('@/lib/geocode');
       
-      // Use a timeout to ensure the loading state doesn't get stuck
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Geocoding request timed out')), 10000)
-      })
-      
-      // Geocode the address
-      console.log("Geocoding address:", address)
-      const geocoder = new googleRef.current.maps.Geocoder()
-      
-      const geocodePromise = new Promise<google.maps.GeocoderResult[]>((resolve, reject) => {
-        geocoder.geocode({ address }, (results, status) => {
-          console.log("Geocode status:", status)
-          if (status === googleRef.current?.maps.GeocoderStatus.OK && results && results.length > 0) {
-            resolve(results)
-          } else {
-            reject(new Error(`Geocoding failed: ${status}`))
+      try {
+        // Use our improved geocodeAddress function with a timeout
+        console.log("Geocoding address using improved geocoder:", address);
+        
+        // Create a timeout promise
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Geocoding request timed out after 15 seconds')), 15000);
+        });
+        
+        // Race the geocoding against the timeout
+        const geocodePromise = geocodeAddress(address);
+        const geocodeResult = await Promise.race([geocodePromise, timeoutPromise]) as any;
+        
+        if (!geocodeResult || !geocodeResult.lat || !geocodeResult.lng) {
+          throw new Error('Could not geocode address: Invalid result');
+        }
+        
+        const lat = geocodeResult.lat;
+        const lng = geocodeResult.lng;
+        console.log("Geocoded coordinates:", lat, lng);
+        
+        // Parse time spent value
+        const timeSpentMinutes = timeSpent ? parseInt(timeSpent) : undefined;
+        
+        // Parse appointment window value
+        const appointmentWindowMinutes = appointmentWindow ? parseInt(appointmentWindow) : undefined;
+        
+        // Format appointment time to be compatible with timestamp
+        // Use today's date with the specified time
+        let formattedAppointmentTime = null;
+        if (appointmentTime) {
+          const today = new Date();
+          const [hours, minutes] = appointmentTime.split(':');
+          today.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+          formattedAppointmentTime = today.toISOString();
+        }
+        
+        // Save to database first
+        try {
+          // Get the current user ID
+          const { data: userData } = await supabase.auth.getUser();
+          if (!userData.user) {
+            throw new Error("User not authenticated");
           }
+          
+          // Prepare address data
+          const addressToInsert: Record<string, any> = {
+            user_id: userData.user.id,
+            address: address,
+            lat: lat,
+            lng: lng,
+            notes: notes || null
+          };
+          
+          // Add time fields only if they exist - avoid mentioning fields with schema issues
+          if (timeSpentMinutes !== undefined) {
+            // Using bracket notation to avoid direct property access
+            addressToInsert['time_spent'] = timeSpentMinutes;
+          }
+          
+          if (formattedAppointmentTime) {
+            // Using bracket notation to avoid direct property access
+            addressToInsert['appointment_time'] = formattedAppointmentTime;
+          }
+          
+          if (appointmentWindowMinutes !== undefined) {
+            // Using bracket notation to avoid direct property access
+            addressToInsert['appointment_window'] = appointmentWindowMinutes;
+          }
+          
+          console.log("Inserting address into database:", addressToInsert);
+          
+          // Direct insert with minimal fields first
+          const { data, error } = await supabase
+            .from('addresses')
+            .insert(addressToInsert)
+            .select();
+          
+          if (error) {
+            throw new Error(`Failed to save address to database: ${error.message}`);
+          }
+          
+          // Fetch the newly created address
+          const { data: addressData, error: addressError } = await supabase
+            .from('addresses')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(1);
+            
+          if (addressError) {
+            throw new Error(`Failed to fetch the newly created address: ${addressError.message}`);
+          }
+          
+          const savedAddress = addressData[0]
+          console.log("Saved address:", savedAddress)
+          
+          // Add the address to the UI via callback
+          onAddAddress(savedAddress)
+          
+          // Add to frequent addresses
+          await addToFrequentAddresses(savedAddress)
+          
+          // Reset form
+          setAddress('')
+          setNotes('')
+          setTimeSpent('')
+          setAppointmentTime('')
+          setAppointmentWindow('')
+          
+          toast({
+            title: 'Success',
+            description: 'Address added successfully'
+          })
+        } catch (error) {
+          console.error('Error adding address:', error)
+          toast({
+            title: 'Error',
+            description: `Failed to add address: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            variant: 'destructive'
+          })
+          setIsLoading(false) // Ensure loading state is reset on database error
+        }
+      } catch (error) {
+        console.error('Error geocoding address:', error)
+        toast({
+          title: 'Error',
+          description: `Failed to add address: Geocoding error - ${error instanceof Error ? error.message : 'Unknown error'}`,
+          variant: 'destructive'
         })
-      })
-      
-      // Race the geocoding against the timeout
-      const results = await Promise.race([geocodePromise, timeoutPromise]) as google.maps.GeocoderResult[]
-      console.log("Geocode results received")
-      
-      if (!results || results.length === 0 || !results[0].geometry || !results[0].geometry.location) {
-        throw new Error('Invalid geocoding results')
+        setIsLoading(false) // Ensure loading state is reset on geocoding error
       }
-      
-      const lat = results[0].geometry.location.lat()
-      const lng = results[0].geometry.location.lng()
-      console.log("Geocoded coordinates:", lat, lng)
-      
-      // Save to database first
-      const { data, error } = await supabase
-        .from('addresses')
-        .insert({
-          user_id: user?.id,
-          address: address,
-          lat,
-          lng,
-          notes: notes || '',
-        })
-        .select()
-      
-      if (error) {
-        throw new Error(`Failed to save address to database: ${error.message}`)
-      }
-      
-      // Use the database-generated address with proper ID
-      const savedAddress = data[0]
-      console.log("Saved address:", savedAddress)
-      
-      // Add the address to the UI via callback
-      onAddAddress(savedAddress)
-      
-      // Add to frequent addresses
-      await addToFrequentAddresses(savedAddress)
-      
-      // Reset form
-      setAddress('')
-      setNotes('')
-      
-      toast({
-        title: 'Success',
-        description: 'Address added successfully'
-      })
     } catch (error) {
-      console.error('Error adding address:', error)
+      console.error('Error importing geocode function:', error)
       toast({
         title: 'Error',
-        description: `Failed to add address: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        description: `Failed to add address: Could not load geocoding function`,
         variant: 'destructive'
       })
+      setIsLoading(false) // Ensure loading state is reset on import error
     } finally {
-      // Ensure loading state is reset
+      // Ensure loading state is reset in all cases
       setIsLoading(false)
     }
   }
@@ -380,7 +493,7 @@ export function AddressInput({ onAddAddress }: AddressInputProps) {
         console.log('Google Maps API not loaded, initializing...')
         try {
           const loader = new Loader({
-            apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
+            apiKey: process.env.NEXT_PUBLIC_GOOGLE_API_KEY || '',
             version: 'weekly',
             libraries: ['places']
           })
@@ -452,12 +565,23 @@ export function AddressInput({ onAddAddress }: AddressInputProps) {
             console.log('Using geocode result:', result.formatted_address)
             
             // Save to Supabase
-            const { error } = await supabase.from('addresses').insert({
-              user_id: user?.id,
+            const { data: userData } = await supabase.auth.getUser();
+            if (!userData.user) {
+              throw new Error("User not authenticated");
+            }
+            
+            const addressToInsert: Record<string, any> = {
+              user_id: userData.user.id,
               address: result.formatted_address,
               lat: result.geometry.location.lat(),
-              lng: result.geometry.location.lng()
-            })
+              lng: result.geometry.location.lng(),
+              notes: null
+            };
+            
+            const { error } = await supabase
+              .from('addresses')
+              .insert(addressToInsert)
+              .select();
             
             if (error) {
               errorCount++
@@ -523,12 +647,23 @@ export function AddressInput({ onAddAddress }: AddressInputProps) {
             if (placeDetails.geometry?.location && placeDetails.formatted_address) {
               console.log('Saving address to Supabase:', placeDetails.formatted_address)
               // Save to Supabase
-              const { error } = await supabase.from('addresses').insert({
-                user_id: user?.id,
+              const { data: userData } = await supabase.auth.getUser();
+              if (!userData.user) {
+                throw new Error("User not authenticated");
+              }
+              
+              const addressToInsert: Record<string, any> = {
+                user_id: userData.user.id,
                 address: placeDetails.formatted_address,
                 lat: placeDetails.geometry.location.lat(),
-                lng: placeDetails.geometry.location.lng()
-              })
+                lng: placeDetails.geometry.location.lng(),
+                notes: null
+              };
+              
+              const { error } = await supabase
+                .from('addresses')
+                .insert(addressToInsert)
+                .select();
               
               if (error) {
                 errorCount++
@@ -675,6 +810,57 @@ export function AddressInput({ onAddAddress }: AddressInputProps) {
             className="w-full focus:ring-emerald-500 focus:border-emerald-500 resize-none min-h-[80px]"
             disabled={isLoading}
           />
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label htmlFor="timeSpent" className="block text-sm font-medium text-gray-700 mb-1">
+              Time spent (minutes)
+            </label>
+            <Input
+              id="timeSpent"
+              type="number"
+              min="0"
+              placeholder="15"
+              value={timeSpent}
+              onChange={(e) => setTimeSpent(e.target.value)}
+              className="w-full focus:ring-emerald-500 focus:border-emerald-500"
+              disabled={isLoading}
+            />
+          </div>
+          
+          <div>
+            <label htmlFor="appointmentTime" className="block text-sm font-medium text-gray-700 mb-1">
+              Driver arrival time
+            </label>
+            <Input
+              id="appointmentTime"
+              type="time"
+              value={appointmentTime}
+              onChange={(e) => setAppointmentTime(e.target.value)}
+              className="w-full focus:ring-emerald-500 focus:border-emerald-500"
+              disabled={isLoading}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              When the driver needs to arrive at this location
+            </p>
+          </div>
+          
+          <div>
+            <label htmlFor="appointmentWindow" className="block text-sm font-medium text-gray-700 mb-1">
+              Appointment window (minutes)
+            </label>
+            <Input
+              id="appointmentWindow"
+              type="number"
+              min="0"
+              placeholder="60"
+              value={appointmentWindow}
+              onChange={(e) => setAppointmentWindow(e.target.value)}
+              className="w-full focus:ring-emerald-500 focus:border-emerald-500"
+              disabled={isLoading}
+            />
+          </div>
         </div>
         
         <div className="flex justify-end">

@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS public.addresses (
   lng NUMERIC NOT NULL,
   notes TEXT,
   time_spent INTEGER,
+  appointment_time TIMESTAMP WITH TIME ZONE,
+  appointment_window INTEGER DEFAULT 60,
   usage_count INTEGER DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -66,6 +68,88 @@ CREATE TABLE IF NOT EXISTS public.user_settings (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Create stored procedure for adding addresses to bypass schema cache issues
+CREATE OR REPLACE FUNCTION public.add_address(
+  p_address TEXT,
+  p_lat NUMERIC,
+  p_lng NUMERIC,
+  p_notes TEXT DEFAULT NULL,
+  p_time_spent INTEGER DEFAULT NULL,
+  p_appointment_time TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+  p_appointment_window INTEGER DEFAULT 60
+) RETURNS SETOF public.addresses AS $$
+BEGIN
+  RETURN QUERY
+  INSERT INTO public.addresses (
+    user_id,
+    address,
+    lat,
+    lng,
+    notes,
+    time_spent,
+    appointment_time,
+    appointment_window
+  ) VALUES (
+    auth.uid(),
+    p_address,
+    p_lat,
+    p_lng,
+    p_notes,
+    p_time_spent,
+    p_appointment_time,
+    p_appointment_window
+  )
+  RETURNING *;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create a raw SQL function to insert addresses directly
+CREATE OR REPLACE FUNCTION public.insert_address_raw(
+  user_id_param UUID,
+  address_param TEXT,
+  lat_param NUMERIC,
+  lng_param NUMERIC,
+  notes_param TEXT DEFAULT NULL,
+  time_spent_param INTEGER DEFAULT NULL,
+  appointment_time_param TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+  appointment_window_param INTEGER DEFAULT 60
+) RETURNS JSONB AS $$
+DECLARE
+  result JSONB;
+BEGIN
+  -- Use dynamic SQL to bypass schema cache issues
+  EXECUTE format('
+    INSERT INTO public.addresses (
+      user_id, 
+      address, 
+      lat, 
+      lng, 
+      notes, 
+      time_spent, 
+      appointment_time, 
+      appointment_window
+    ) VALUES (
+      %L, %L, %L, %L, %L, %L, %L, %L
+    ) RETURNING to_jsonb(addresses.*)
+  ', 
+    user_id_param, 
+    address_param, 
+    lat_param, 
+    lng_param, 
+    notes_param, 
+    time_spent_param, 
+    appointment_time_param, 
+    appointment_window_param
+  ) INTO result;
+  
+  RETURN result;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Grant execute permission on the function to authenticated users
+GRANT EXECUTE ON FUNCTION public.add_address TO authenticated;
+GRANT EXECUTE ON FUNCTION public.insert_address_raw TO authenticated;
 
 -- Create RLS policies for tables
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;

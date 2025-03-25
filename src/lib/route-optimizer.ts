@@ -14,6 +14,14 @@ export async function optimizeRoute(addresses: Address[], startAddress?: Address
     }
   }
 
+  // Check if any addresses have appointment times
+  const hasAppointments = addresses.some(a => a.appointment_time);
+  
+  // If we have appointments, we need to prioritize those in the route
+  if (hasAppointments) {
+    return optimizeRouteWithAppointments(addresses, startAddress);
+  }
+
   // In a real application, we would use the Google Maps Distance Matrix API or similar
   // to get the actual distances between all addresses
   // For this demo, we'll use a simple nearest neighbor algorithm
@@ -65,7 +73,13 @@ export async function optimizeRoute(addresses: Address[], startAddress?: Address
     totalDistance += nearestDistance
     
     // Estimate duration (assuming 50 km/h average speed)
-    totalDuration += (nearestDistance / 50) * 60 // minutes
+    const travelDuration = (nearestDistance / 50) * 60 // minutes
+    totalDuration += travelDuration
+    
+    // Add time spent at the destination if specified
+    if (nearest.time_spent) {
+      totalDuration += nearest.time_spent;
+    }
   }
   
   return {
@@ -73,6 +87,109 @@ export async function optimizeRoute(addresses: Address[], startAddress?: Address
     totalDistance: Math.round(totalDistance * 10) / 10, // Round to 1 decimal place
     totalDuration: Math.round(totalDuration) // Round to nearest minute
   }
+}
+
+// Function to optimize route considering appointment times
+function optimizeRouteWithAppointments(addresses: Address[], startAddress?: Address) {
+  // Start with the start address if provided, otherwise use the first address
+  const start = startAddress || addresses[0];
+  
+  // Sort addresses by appointment time (if available)
+  const addressesWithAppointments = addresses
+    .filter(a => a.appointment_time)
+    .sort((a, b) => {
+      // Use non-null assertion since we've already filtered for addresses with appointment_time
+      const timeA = new Date(a.appointment_time as string).getTime();
+      const timeB = new Date(b.appointment_time as string).getTime();
+      return timeA - timeB;
+    });
+  
+  // Addresses without appointment times
+  const addressesWithoutAppointments = addresses.filter(a => !a.appointment_time);
+  
+  // Create initial route with start address and addresses with appointments in chronological order
+  const route = [start];
+  const optimizedOrder = [start.id];
+  
+  // Add addresses with appointments in chronological order
+  for (const address of addressesWithAppointments) {
+    if (address.id !== start.id) {
+      route.push(address);
+      optimizedOrder.push(address.id);
+    }
+  }
+  
+  // For remaining addresses without appointments, use nearest neighbor
+  let remainingAddresses = addressesWithoutAppointments.filter(a => a.id !== start.id);
+  
+  while (remainingAddresses.length > 0) {
+    const current = route[route.length - 1];
+    
+    // Find the nearest address
+    let nearestIndex = 0;
+    let nearestDistance = calculateDistance(
+      current.lat,
+      current.lng,
+      remainingAddresses[0].lat,
+      remainingAddresses[0].lng
+    );
+    
+    for (let i = 1; i < remainingAddresses.length; i++) {
+      const distance = calculateDistance(
+        current.lat,
+        current.lng,
+        remainingAddresses[i].lat,
+        remainingAddresses[i].lng
+      );
+      
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestIndex = i;
+      }
+    }
+    
+    const nearest = remainingAddresses[nearestIndex];
+    route.push(nearest);
+    optimizedOrder.push(nearest.id);
+    
+    // Remove the visited address
+    remainingAddresses.splice(nearestIndex, 1);
+  }
+  
+  // Calculate total distance and duration
+  let totalDistance = 0;
+  let totalDuration = 0;
+  
+  for (let i = 0; i < route.length - 1; i++) {
+    const distance = calculateDistance(
+      route[i].lat,
+      route[i].lng,
+      route[i + 1].lat,
+      route[i + 1].lng
+    );
+    
+    totalDistance += distance;
+    
+    // Estimate travel duration (assuming 50 km/h average speed)
+    const travelDuration = (distance / 50) * 60; // minutes
+    totalDuration += travelDuration;
+    
+    // Add time spent at the destination if specified
+    if (route[i].time_spent) {
+      totalDuration += route[i].time_spent;
+    }
+  }
+  
+  // Add time spent at the last destination if specified
+  if (route[route.length - 1].time_spent) {
+    totalDuration += route[route.length - 1].time_spent;
+  }
+  
+  return {
+    optimizedOrder,
+    totalDistance: Math.round(totalDistance * 10) / 10, // Round to 1 decimal place
+    totalDuration: Math.round(totalDuration) // Round to nearest minute
+  };
 }
 
 // Multi-driver route optimization

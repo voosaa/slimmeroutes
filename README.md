@@ -1,16 +1,17 @@
-# RoutePlanner Pro
+# SlimmeRoutes
 
-RoutePlanner Pro is a comprehensive route optimization application designed to help businesses efficiently plan and manage customer visits. The application offers advanced features for address management, route generation, real-time traffic updates, dynamic pricing models, and detailed reporting.
+SlimmeRoutes is a comprehensive route optimization application designed to help businesses efficiently plan and manage customer visits. The application offers advanced features for address management, route generation, real-time traffic updates, and multi-driver optimization.
 
 ## Features
 
 - **Address Management**: Add, edit, and organize customer addresses with notes and details
+- **Enhanced Address Fields**: Support for time spent at location, appointment times, and appointment windows
 - **Google Maps Integration**: Visualize addresses and routes on an interactive map
-- **Multi-stop Route Optimization**: Automatically calculate the most efficient route for multiple stops
+- **Multi-driver Route Optimization**: Automatically calculate the most efficient route across multiple drivers
+- **CSV/Excel Import**: Import addresses from spreadsheets with custom field mapping
 - **Real-time Traffic Updates**: Get up-to-date traffic information to adjust routes dynamically
-- **Dynamic Pricing Model**: Calculate estimated costs based on distance, time, and fuel prices
-- **Reporting and Analytics**: Generate detailed reports on distance traveled, time saved, and cost efficiency
-- **User-friendly Interface**: Clean, responsive design with intuitive controls
+- **User-friendly Interface**: Clean, responsive design with intuitive workflow
+- **Sequential Workflow**: Clear, guided 3-step process (Add Addresses → Select Drivers → Optimize Routes)
 
 ## Tech Stack
 
@@ -19,7 +20,7 @@ RoutePlanner Pro is a comprehensive route optimization application designed to h
 - **Maps & Geocoding**: Google Maps API, Places API
 - **Database**: Supabase (PostgreSQL)
 - **Authentication**: Supabase Auth
-- **Visualization**: Recharts for analytics
+- **File Handling**: Client-side CSV and Excel parsing
 
 ## Getting Started
 
@@ -35,30 +36,46 @@ RoutePlanner Pro is a comprehensive route optimization application designed to h
 Create a `.env.local` file in the root directory with the following variables:
 
 ```
+# Supabase credentials
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
+
+# Google Maps API key
+NEXT_PUBLIC_GOOGLE_API_KEY=your_google_maps_api_key
+
+# Google Calendar API credentials (optional)
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id
 ```
 
 ### Installation
 
 1. Clone the repository
-2. Install dependencies:
+2. Install dependencies
    ```
    npm install
+   # or
+   yarn install
    ```
-3. Start the development server:
+3. Run the development server
    ```
    npm run dev
+   # or
+   yarn dev
    ```
-4. Open [http://localhost:3000](http://localhost:3000) in your browser
 
-## Usage
+## Database Schema
 
-1. **Add Addresses**: Enter customer addresses using the address input form with Google Places autocomplete
-2. **Generate Routes**: Click "Generate Route" to calculate the optimal route between all addresses
-3. **View Analytics**: Switch to the Analytics tab to view reports on distance, time, and costs
-4. **Export Data**: Export your schedule as CSV or share it with others
+The application uses the following key tables in Supabase:
+- `addresses`: Stores customer addresses with geocoding information
+- `drivers`: Manages information about delivery drivers
+- `routes`: Stores optimized routes and their details
+
+## Recent Updates
+
+- Added support for additional address fields (time spent, appointment time, appointment window)
+- Enhanced geocoding reliability with improved error handling
+- Added CSV/Excel import functionality with field detection
+- Implemented a clear 3-step workflow for route optimization
 
 ## License
 

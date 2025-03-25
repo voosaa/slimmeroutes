@@ -1,7 +1,7 @@
 import { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Route History - DriveWise',
+  title: 'Route History - SlimmeRoutes',
   description: 'View your past routes and schedules',
 }
 

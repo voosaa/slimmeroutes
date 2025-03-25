@@ -1,6 +1,6 @@
-# Environment Variables Setup for DriveWise
+# Environment Variables Setup for SlimmeRoutes
 
-This document explains how to set up environment variables for the DriveWise application.
+This document explains how to set up environment variables for the SlimmeRoutes application.
 
 ## Required Environment Variables
 

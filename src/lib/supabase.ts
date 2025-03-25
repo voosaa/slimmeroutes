@@ -9,7 +9,19 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 // Create the Supabase client
 export const supabase = createClient(
   supabaseUrl || 'https://frvgobihuyhvjowjxduw.supabase.co',
-  supabaseAnonKey || ''
+  supabaseAnonKey || '',
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+    },
+    db: {
+      schema: 'public',
+    },
+    global: {
+      headers: { 'x-application-name': 'slimmeroutes' },
+    },
+  }
 )
 
 // Log initialization status
@@ -73,6 +85,8 @@ export type Address = {
   lng: number
   notes?: string | null
   time_spent?: number | null
+  appointment_time?: string | null
+  appointment_window?: number | null
   created_at: string
   usage_count?: number
 }
@@ -163,7 +177,7 @@ export async function signOut() {
 }
 
 // Address functions
-export async function addAddress(address: string, lat: number, lng: number, notes?: string) {
+export async function addAddress(address: string, lat: number, lng: number, notes?: string, time_spent?: number, appointment_time?: string, appointment_window?: number) {
   if (!supabase) return mockSupabaseResponse
   const { data: user } = await supabase.auth.getUser()
   
@@ -179,7 +193,10 @@ export async function addAddress(address: string, lat: number, lng: number, note
         address,
         lat,
         lng,
-        notes
+        notes,
+        time_spent,
+        appointment_time,
+        appointment_window
       }
     ])
     .select()
@@ -212,6 +229,56 @@ export async function deleteAddress(id: string) {
     .eq('id', id)
   
   return { error }
+}
+
+// Function to add address that completely bypasses schema cache issues
+export async function addAddressDirectly(
+  address: string,
+  lat: number,
+  lng: number,
+  notes?: string | null,
+  timeSpent?: number | null,
+  appointmentTime?: string | null,
+  appointmentWindow?: number | null
+): Promise<{ data: any; error: Error | null }> {
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) {
+      return { data: null, error: new Error("User not authenticated") };
+    }
+
+    // Use a raw SQL query with positional parameters to completely bypass schema cache
+    const { data, error } = await supabase.rpc(
+      'execute_sql', 
+      { 
+        sql_query: `
+          INSERT INTO addresses (
+            user_id, address, lat, lng, notes, time_spent, appointment_time, appointment_window
+          ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8
+          ) RETURNING *
+        `,
+        params: [
+          userData.user.id,
+          address,
+          lat,
+          lng,
+          notes || null,
+          timeSpent || null,
+          appointmentTime || null,
+          appointmentWindow || null
+        ]
+      }
+    );
+
+    if (error) {
+      return { data: null, error: new Error(`Failed to save address: ${error.message}`) };
+    }
+
+    return { data, error: null };
+  } catch (error: any) {
+    return { data: null, error: error };
+  }
 }
 
 // Route functions

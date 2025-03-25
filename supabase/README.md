@@ -1,6 +1,6 @@
-# Supabase Setup for DriveWise
+# Supabase Setup for SlimmeRoutes
 
-This directory contains the necessary SQL migrations to set up the Supabase database for the DriveWise application.
+This directory contains the necessary SQL migrations to set up the Supabase database for the SlimmeRoutes application.
 
 ## Required Tables
 
@@ -50,7 +50,7 @@ All tables have row-level security enabled to ensure users can only:
 
 ## Authentication
 
-DriveWise uses Supabase Authentication for user management. Make sure to:
+SlimmeRoutes uses Supabase Authentication for user management. Make sure to:
 1. Configure the authentication providers you want to support
 2. Set up the redirect URLs for your application
 3. Configure email templates if using email authentication
