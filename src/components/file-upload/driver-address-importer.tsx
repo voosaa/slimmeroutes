@@ -159,6 +159,12 @@ export function DriverAddressImporter({ onImportComplete }: DriverAddressImporte
     )
   }
 
+  interface BatchProcessResult {
+    success: boolean;
+    error?: string;
+    address?: Address;
+  }
+
   const handleImport = async () => {
     if (!user || importedAddresses.length === 0) return
 
@@ -175,16 +181,20 @@ export function DriverAddressImporter({ onImportComplete }: DriverAddressImporte
         // Process each address in the batch
         const batchPromises = batch.map(async (importedAddress) => {
           try {
-            // Geocode the address
-            // Make sure address is not undefined before passing to geocodeAddress
-            if (!importedAddress.address) {
-              return { success: false, error: `Empty address found in import` }
+            if (!importedAddress.address || importedAddress.address.trim() === '') {
+              return { 
+                success: false, 
+                error: `Empty address found in import` 
+              } as BatchProcessResult;
             }
             
             const geocodeResult = await geocodeAddress(importedAddress.address)
             
             if (!geocodeResult) {
-              return { success: false, error: `Could not geocode address: ${importedAddress.address}` }
+              return { 
+                success: false, 
+                error: `Could not geocode address: ${importedAddress.address}` 
+              } as BatchProcessResult;
             }
             
             // Insert the address into the database
@@ -201,34 +211,40 @@ export function DriverAddressImporter({ onImportComplete }: DriverAddressImporte
             
             if (error) {
               console.error("Database error:", error);
-              return { success: false, error: `Database error for address ${importedAddress.address}: ${error.message}` }
+              return { 
+                success: false, 
+                error: `Database error for address ${importedAddress.address}: ${error.message}` 
+              } as BatchProcessResult;
             }
             
             if (!data || data.length === 0) {
-              return { success: false, error: `No data returned for address ${importedAddress.address}` }
+              return { 
+                success: false, 
+                error: `No data returned for address ${importedAddress.address}` 
+              } as BatchProcessResult;
             }
             
-            return { success: true, address: data[0] }
+            return { 
+              success: true, 
+              address: data[0] 
+            } as BatchProcessResult;
           } catch (error) {
             console.error("Error processing address:", error);
             return { 
               success: false, 
               error: `Error processing address ${importedAddress.address}: ${error instanceof Error ? error.message : 'Unknown error'}` 
-            }
+            } as BatchProcessResult;
           }
         })
         
         const batchResults = await Promise.all(batchPromises)
         
-        batchResults.forEach(result => {
+        batchResults.forEach((result: BatchProcessResult) => {
           if (!result.success) {
-            if (result.error) {
-              errors.push(result.error)
-            } else {
-              errors.push('Unknown error occurred')
-            }
+            // Ensure we always push a string to the errors array
+            errors.push(result.error || 'Unknown error occurred');
           } else if (result.address) {
-            successfulImports.push(result.address)
+            successfulImports.push(result.address);
           }
         })
       }
