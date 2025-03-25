@@ -222,7 +222,11 @@ export function DriverAddressImporter({ onImportComplete }: DriverAddressImporte
         
         batchResults.forEach(result => {
           if (!result.success) {
-            errors.push(result.error)
+            if (result.error) {
+              errors.push(result.error)
+            } else {
+              errors.push('Unknown error occurred')
+            }
           } else if (result.address) {
             successfulImports.push(result.address)
           }
